@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Burn Rate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: tense, wry war-room game; terse console copy, real SRE vocabulary
+IDEA: a pager clipped to a NOC status wall — SLOs are the scoreboard, the error budget is your life bar
+PICTURE: four live service racks with sparklines and draining budget bars that flare red when they burn
+COLOUR and TYPE: graphite pager housing, white panels, signal red for burn, cobalt for action; Archivo, Inter, JetBrains Mono figures
+LAYOUT: pager bar on top, racks left, incident queue + detail right, team + log below; stacks under 900px */
+:root{color-scheme:light dark;--bg:light-dark(#e9ebef,#0d0f12);--panel:light-dark(#fff,#181b20);--soft:light-dark(#f3f4f7,#20242b);--line:light-dark(#d6d9e0,#2c313a);--ink:light-dark(#14161a,#eef0f3);--mute:light-dark(#5b6170,#9ca3af);--red:#e5322d;--redsoft:light-dark(#fde7e6,#3a1816);--blue:light-dark(#2f5cff,#7390ff);--bluesoft:light-dark(#e6ecff,#1c2445);--amber:light-dark(#a86400,#f2a20c);--ok:light-dark(#18804a,#3ccf7e)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif;overflow-x:clip}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.top{background:#15171b;color:#f3f4f6;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;padding:10px max(2vw,12px);border-bottom:4px solid var(--red);position:sticky;top:0;z-index:5}
+.logo{font:800 24px/1 Archivo,sans-serif;display:flex;align-items:center;gap:10px}
+.logo svg{width:28px;height:28px}
+.clock{font-size:24px;font-weight:700}
+.tday{color:#aab1bd;font-size:13px}
+.stat{display:flex;flex-direction:column;font-size:12px;color:#aab1bd}.stat b{color:#fff;font-size:16px}
+.ctl{display:flex;gap:6px;margin-left:auto}
+.ctl button{background:#262a31;border:1px solid #3a3f48;border-radius:8px;min-width:44px;height:40px;padding:0 10px;color:#f3f4f6;font-weight:600}
+.ctl button[aria-pressed=true]{background:var(--red);border-color:var(--red)}
+.main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:14px max(2vw,12px);max-width:1440px;margin:auto}
+.svcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start}
+.p{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.svc{position:relative;transition:box-shadow .3s}
+.svc.burning{box-shadow:0 0 0 2px var(--red)}
+.sh{display:flex;align-items:center;gap:8px}.sh b{font:700 16px Archivo,sans-serif}.sh .slo{margin-left:auto;color:var(--mute);font-size:12px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
+.dot.warn{background:var(--amber)}.dot.bad{background:var(--red);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.3}}
+.nums{display:flex;gap:18px;margin:8px 0 4px}.nums small,.bl small{display:block;color:var(--mute);font-size:12px}
+.big{font-size:28px;font-weight:700;line-height:1.1}
+.spark{height:56px;position:relative;margin:4px 0 8px}.spark canvas{position:absolute;inset:0;width:100%;height:100%}
+.bl{display:flex;justify-content:space-between;align-items:end}
+.track{height:10px;background:var(--soft);border-radius:6px;overflow:hidden;margin-top:4px}
+.track i{display:block;height:100%;background:var(--ok);transition:width .3s}
+.sf{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:13px;color:var(--mute)}
+.btn{background:var(--soft);border:1px solid var(--line);border-radius:8px;min-height:40px;padding:6px 12px;font-weight:600}
+.btn:hover{border-color:var(--mute)}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.warn{background:var(--redsoft);border-color:var(--red);color:var(--red)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+h2{font:800 20px/1.1 Archivo,sans-serif;margin:0 0 10px}
+.side{display:flex;flex-direction:column;gap:12px}
+.queue{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
+.inc{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 10px;align-items:center;text-align:left;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
+.inc.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+.inc .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.inc .m{grid-column:2/4;font-size:12px;color:var(--mute)}
+.chip{font:700 11px "JetBrains Mono",monospace;padding:3px 6px;border-radius:5px;background:var(--red);color:#fff}
+.chip.working{background:var(--blue)}.chip.resolved{background:var(--ok)}
+.inc.open .chip{animation:pulse 1.2s infinite}
+.inc.resolved{opacity:.6}
+.empty{color:var(--mute);font-size:14px;padding:10px 0}
+.det h3{font:700 17px/1.25 Archivo,sans-serif;margin:0 0 4px}
+.meta{font-size:13px;color:var(--mute);margin-bottom:8px}
+.clue{background:var(--bluesoft);border-radius:8px;padding:8px 10px;margin:8px 0;font-size:14px}
+.tried{font-size:13px;color:var(--mute);margin:6px 0}
+.lbl{font-size:12px;color:var(--mute);margin:10px 0 6px}
+.row{display:flex;flex-wrap:wrap;gap:6px}
+.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.acts .btn{text-align:left;font-size:14px}.acts .btn span{display:block;font-weight:500;color:var(--mute);font-size:12px}
+.prog{height:8px;background:var(--soft);border-radius:5px;overflow:hidden;margin:6px 0}.prog i{display:block;height:100%;background:var(--blue)}
+.lower{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:0 max(2vw,12px) 24px;max-width:1440px;margin:auto}
+.team{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.eng{background:var(--soft);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px}
+.eng .face{width:38px;height:38px}
+.eng b{font-size:15px}.eng small{color:var(--mute);font-size:12px;min-height:2.6em}
+.eng.out{opacity:.5}
+.badge{font-size:11px;font-weight:700;color:var(--red)}
+.log{list-style:none;margin:0;padding:0;max-height:210px;overflow:auto;font-size:13px}
+.log li{padding:4px 0;border-bottom:1px solid var(--line);display:flex;gap:8px}.log time{color:var(--mute);flex:none}
+.log li.bad{color:var(--red)}.log li.good{color:var(--ok)}
+.toast{position:fixed;right:16px;bottom:16px;z-index:9;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast div{background:#15171b;color:#fff;border-left:4px solid var(--red);padding:10px 14px;border-radius:8px;max-width:340px;box-shadow:0 8px 24px #0005;font-size:14px;animation:tin .25s}
+@keyframes tin{from{transform:translateX(30px);opacity:0}}
+.ov{position:fixed;inset:0;background:#0b0d10cc;z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 12px}
+.ov[hidden]{display:none}
+.modal{background:var(--panel);border-radius:16px;max-width:880px;width:100%;padding:clamp(18px,3vw,34px);border-top:6px solid var(--red)}
+.modal h1{font:800 clamp(32px,5vw,48px)/1.05 Archivo,sans-serif;margin:0 0 8px;text-wrap:balance}
+.modal p{max-width:68ch}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0}
+.how div{background:var(--soft);border-radius:10px;padding:12px}.how b{display:block;font-family:Archivo,sans-serif;margin-bottom:4px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:14px}
+.card{text-align:left;background:var(--soft);border:2px solid transparent;border-radius:10px;padding:10px 12px;min-height:44px}
+.card b{display:flex;justify-content:space-between;gap:8px}.card small{display:block;color:var(--mute);font-size:13px;margin-top:4px}
+.card.picked{border-color:var(--blue);background:var(--bluesoft)}.card[disabled]{opacity:.5}
+.pts{font-size:18px;margin:10px 0 16px}.pts b{font-size:32px;color:var(--blue)}
+h4{margin:14px 0 8px;font:700 15px Archivo,sans-serif}
+table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}td.n,th.n{text-align:right}
+.grade{font:800 clamp(44px,8vw,72px)/1 Archivo,sans-serif;color:var(--red)}
+@media(max-width:900px){.main,.lower{grid-template-columns:minmax(0,1fr)}.ctl{margin-left:0}}
+@media(max-width:560px){.svcs{grid-template-columns:minmax(0,1fr)}.team{grid-template-columns:repeat(2,minmax(0,1fr))}.stat.hide{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style></head><body>
+<header class="top">
+  <div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2c2 6 9 9 9 17a9 9 0 0 1-18 0c0-5 3-7 4-11 1 3 2 4 4 5-1-4 0-8 1-11z" fill="#e5322d"/><path d="M16 15c1 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-5 1 1 1 2 2 2 0-2-1-3 0-5z" fill="#ffb199"/></svg>Burn Rate</div>
+  <div><div class="clock mono" id="clock">08:00</div><div class="tday" id="tday">Day 1 of 5</div></div>
+  <div class="stat"><span>Features shipped</span><b class="mono" id="feat">0 / 40</b></div>
+  <div class="stat"><span>Toil today</span><b class="mono" id="toil">0.0</b></div>
+  <div class="stat hide"><span>Pages</span><b class="mono" id="pages">0</b></div>
+  <div class="ctl" role="group" aria-label="Game speed">
+    <button id="bpause" data-act="pause" aria-label="Pause">❚❚</button>
+    <button data-act="speed" data-v="1" aria-pressed="true">1×</button>
+    <button data-act="speed" data-v="2" aria-pressed="false">2×</button>
+    <button data-act="speed" data-v="4" aria-pressed="false">4×</button>
+    <button data-act="mute" id="bmute" aria-pressed="false">Sound on</button>
+  </div>
+</header>
+<main class="main">
+  <section class="svcs" id="svcs" aria-label="Services"></section>
+  <section class="side">
+    <div class="p"><h2>Pager</h2><div class="queue" id="queue"></div></div>
+    <div class="p det" id="det"></div>
+  </section>
+</main>
+<section class="lower">
+  <div class="p"><h2>On-call team</h2><div class="team" id="team"></div></div>
+  <div class="p"><h2>Incident log</h2><ul class="log" id="log"></ul></div>
+</section>
+<div class="toast" id="toast" aria-live="polite"></div>
+<div class="ov" id="ov"><div class="modal" id="modal"></div></div>
+<script>
+{
+const $=s=>document.querySelector(s);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const DAYS=5,DAYMIN=1440,TARGET=55,SCALE=12;
+const CAUSES={
+  deploy:{n:'Bad deploy',fix:'rollback',clue:'Error spike began minutes after the last release went out.',sym:'5xx spike after release'},
+  leak:{n:'Memory leak',fix:'restart',clue:'Memory climbing steadily; pods are being OOMKilled.',sym:'Pods OOMKilled'},
+  spike:{n:'Traffic surge',fix:'scale',clue:'Requests at 3× baseline, CPU pegged on every replica.',sym:'CPU saturation'},
+  dep:{n:'Dependency outage',fix:'failover',clue:'Upstream database timing out in one region only.',sym:'Upstream timeouts'},
+  cert:{n:'Expired certificate',fix:'renew',clue:'Clients failing TLS handshakes; cert expired at midnight UTC.',sym:'TLS handshake failures'},
+  disk:{n:'Disk full',fix:'expand',clue:'Writes failing; data volume at 100%.',sym:'Disk usage 98%'}};
+const CK=Object.keys(CAUSES);
+const ACTIONS={rollback:{n:'Roll back',t:15},restart:{n:'Restart pods',t:10},scale:{n:'Scale out',t:15},failover:{n:'Fail over region',t:25},renew:{n:'Renew cert',t:20},expand:{n:'Expand volume',t:15}};
+const HAZ={leak:.011,spike:.011,dep:.007,cert:.002,disk:.007};
+const SEV={deploy:[.1,.3],leak:[.06,.16],spike:[.08,.22],dep:[.14,.32],cert:[.25,.4],disk:[.14,.32]};
+const NOISE=['CPU > 80% on node-#','Disk IO wait high on db-#','Heap at 75% on worker-#','Packet retransmits on lb-#','Cron job slow: cleanup-#','Synthetic check flapped 1/5','Thread pool 70% on api-#'];
+const SVC=[{id:'auth',name:'Auth Gateway',slo:99.5,haz:.4},{id:'ledger',name:'Ledger API',slo:99.0,haz:1},{id:'analytics',name:'Analytics Engine',slo:99.0,haz:1},{id:'reports',name:'Report Renderer',slo:98.5,haz:1.25}];
+const ENG=[{n:'Priya',c:'#e5322d'},{n:'Marcus',c:'#2f5cff'},{n:'Chen',c:'#18804a'},{n:'Dana',c:'#a86400'}];
+const UP=[
+ {id:'burn',g:'Alerting & release',n:'Burn-rate alerting',c:3,d:'Page on SLO burn, not CPU. Noise pages −75%, real incidents detected in ~5 min.'},
+ {id:'canary',g:'Alerting & release',n:'Canary releases',c:3,d:'Bad-deploy odds 20% → 7%, and a bad canary hurts half as much.'},
+ {id:'auto_leak',g:'Automation',n:'Auto-restart on OOM',c:2,d:'Memory leaks are restarted by automation within 8 min.'},
+ {id:'auto_spike',g:'Automation',n:'Horizontal autoscaling',c:2,d:'Traffic surges scale out on their own within 6 min.'},
+ {id:'auto_disk',g:'Automation',n:'Volume auto-grow',c:1,d:'Full disks expand themselves within 8 min.'},
+ {id:'auto_cert',g:'Automation',n:'Cert automation',c:1,d:'Certificates renew themselves. Expiry incidents stop happening.'},
+ {id:'auto_dep',g:'Automation',n:'Automated regional failover',c:3,d:'Dependency outages fail over within 10 min.'},
+ ...CK.map(k=>({id:'rb_'+k,g:'Runbooks',n:'Runbook: '+CAUSES[k].n,c:1,d:'Investigations take half the time and are right 95% of the time.'})),
+ {id:'rest',g:'Team',n:'Comp time',c:1,rep:true,d:'Everyone recovers 25 extra fatigue before the next shift.'}];
+const tf=h=>(0.4+1.1*Math.exp(-(((h-14)/4.5)**2)))/0.766;
+const hhmm=t=>{const m=Math.floor(t)%DAYMIN;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
+let G,AC=null,muted=false;
+function newGame(){
+  G={t:8*60,day:1,speed:1,paused:true,running:false,nid:1,incs:[],sel:null,pickEng:null,
+    svcs:SVC.map((s,i)=>({...s,i,budget:(100-s.slo)/100*DAYS*DAYMIN,bad:0,err:0,hist:[],frozen:false,exhausted:false,ver:0})),
+    team:ENG.map((e,i)=>({id:i,name:e.n,c:e.c,fat:8+i*5,busy:null,out:false})),
+    primary:0,up:{},pm:{},features:0,toil:0,pages:0,noisePages:0,burnouts:0,log:[],today:[],
+    st:{real:0,resolved:0,ttr:[],auto:0,exhaustedShips:0,dismissedReal:0},sched:[{at:8*60+14,svc:'ledger',cause:'leak'}],dd:{},lastSample:0,first:true,dayStats:{pages:0,incidents:0}};
+  G.svcs.forEach(s=>{for(let k=0;k<48;k++)s.hist.push(.0005)});
+}
+const svc=id=>G.svcs.find(s=>s.id===id);
+const hour=()=>(G.t/60)%24;
+const night=()=>{const h=hour();return h<7||h>=23};
+const burnOf=s=>s.err/((100-s.slo)/100);
+function log(msg,cls=''){G.log.unshift({t:G.t,d:G.day,msg,cls});if(G.log.length>80)G.log.pop()}
+function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').prepend(d);setTimeout(()=>d.remove(),4200);while($('#toast').children.length>3)$('#toast').lastChild.remove()}
+function beep(){if(muted)return;try{AC=AC||new AudioContext();const n=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.setValueAtTime(880,n);o.frequency.setValueAtTime(660,n+.11);o.frequency.setValueAtTime(880,n+.22);g.gain.setValueAtTime(.04,n);g.gain.exponentialRampToValueAtTime(.0001,n+.36);o.connect(g).connect(AC.destination);o.start(n);o.stop(n+.37)}catch(e){}}
+function oncall(){for(let k=0;k<4;k++){const e=G.team[(G.primary+k)%4];if(!e.out)return e}return null}
+function pageHit(){const e=oncall();if(e)e.fat+=night()?6:2;G.pages++;G.dayStats.pages++}
+function spawn(s,cause,o={}){
+  if(cause==='cert'&&G.up.auto_cert)return;
+  const r=SEV[cause],inc={id:G.nid++,svc:s.id,cause,sev:o.sev??rnd(r[0],r[1]),err:0,t0:G.t,state:'hidden',task:null,diag:null,tried:[],noise:false};
+  inc.detectAt=G.t+(G.up.burn?rnd(3,6):rnd(6,15)+(cause==='leak'?12:0));
+  const am={leak:['auto_leak',8],spike:['auto_spike',6],disk:['auto_disk',8],dep:['auto_dep',10]}[cause];
+  if(am&&G.up[am[0]])inc.autoAt=G.t+am[1];
+  if(!G.up.burn){const c=Math.random()<.3?pick(CK.filter(k=>k!==cause)):cause;inc.title=CAUSES[c].sym+' — '+s.name}
+  G.incs.push(inc);G.st.real++;G.dayStats.incidents++;
+}
+function spawnNoise(){const s=pick(G.svcs);G.incs.push({id:G.nid++,svc:s.id,cause:'noise',noise:true,sev:0,err:0,t0:G.t,state:'hidden',task:null,diag:null,tried:[],title:pick(NOISE).replace('#',Math.floor(rnd(10,99)))+' — '+s.name,expireAt:G.t+rnd(35,55)})}
+function page(inc){
+  const s=svc(inc.svc);
+  if(!inc.noise&&G.up.burn&&!inc.title)inc.title=s.name+': budget burning '+Math.max(2,burnOf(s)).toFixed(0)+'× (fast burn)';
+  inc.state='open';inc.lastPage=G.t;inc.openedAt??=G.t;pageHit();if(inc.noise)G.noisePages++;
+  beep();toast('PAGE: '+inc.title);log('Paged: '+inc.title,'bad');
+  if(G.first){G.first=false;setTimeout(()=>toast('Select the page, pick an engineer, then investigate or remediate.'),600)}
+  if(!G.sel||!G.incs.find(i=>i.id===G.sel&&i.state!=='resolved'))G.sel=inc.id;
+}
+function resolve(inc,msg,cls='good'){
+  if(inc.task){G.team[inc.task.eng].busy=null;inc.task=null}
+  inc.state='resolved';inc.resolvedAt=G.t;inc.msg=msg;log(msg,cls);
+  if(!inc.noise){G.st.resolved++;G.st.ttr.push(G.t-inc.t0);G.today.push({svc:inc.svc,cause:inc.cause})}
+}
+function startTask(inc,eid,kind){
+  const e=G.team[eid];if(!e||e.out||e.busy!=null||inc.task)return;
+  let dur=kind==='inv'?(inc.noise?15:(G.up['rb_'+inc.cause]?10:20)):ACTIONS[kind].t;
+  if(e.fat>70)dur*=1.4;
+  inc.task={eng:eid,kind,start:G.t,end:G.t+dur};inc.state='working';e.busy=inc.id;G.pickEng=eid;
+  if(kind!=='inv')G.toil+=.35;
+  log(e.name+(kind==='inv'?' is investigating ':' started “'+ACTIONS[kind].n+'” on ')+'#'+inc.id);
+}
+function complete(inc){
+  const t=inc.task,e=G.team[t.eng];e.busy=null;inc.task=null;inc.state='open';inc.lastPage=G.t;
+  const s=svc(inc.svc);
+  if(t.kind==='inv'){
+    if(inc.noise){G.toil+=.2;return resolve(inc,'#'+inc.id+' was a false positive — no customer impact. Closed by '+e.name+'.','')}
+    const rb=G.up['rb_'+inc.cause],acc=(rb?.95:.65)-(e.fat>70?.2:0);
+    const dc=Math.random()<acc?inc.cause:pick(CK.filter(k=>k!==inc.cause));
+    inc.diag={cause:dc,conf:rb?'high':(e.fat>70?'low':'medium'),by:e.name};
+    log(e.name+' on #'+inc.id+': '+CAUSES[dc].clue);return;
+  }
+  const a=ACTIONS[t.kind];
+  if(inc.noise){G.toil+=.2;inc.tried.push(t.kind);log(a.n+' on #'+inc.id+' changed nothing — nothing was broken.');return}
+  if(CAUSES[inc.cause].fix===t.kind){
+    resolve(inc,e.name+' resolved #'+inc.id+' ('+CAUSES[inc.cause].n+', '+s.name+') with “'+a.n+'”.');
+    if(inc.cause==='deploy'){G.features=Math.max(0,G.features-1)}
+    if(inc.cause==='leak'&&!G.pm[s.id+':leak']&&Math.random()<.5)G.sched.push({at:G.t+rnd(240,480),svc:s.id,cause:'leak'});
+  }else{inc.tried.push(t.kind);log('“'+a.n+'” on #'+inc.id+' — no improvement. Still burning.','bad')}
+}
+function deploy(s){
+  if(s.frozen){log(s.name+' release skipped (change freeze).');return}
+  s.ver++;G.features++;if(s.exhausted)G.st.exhaustedShips++;
+  let p=G.up.canary?.07:.2;if(G.pm[s.id+':deploy'])p*=.4;
+  log(s.name+' shipped v'+G.day+'.'+s.ver+'.');
+  if(Math.random()<p)spawn(s,'deploy',G.up.canary?{sev:rnd(.08,.2)}:{});
+}
+function step(dt){
+  G.t+=dt;const h=hour(),traf=tf(h),ramp=1+.12*(G.day-1),base=(G.day-1)*DAYMIN;
+  const due=G.sched.filter(e=>e.at<=G.t);G.sched=G.sched.filter(e=>e.at>G.t);due.forEach(e=>spawn(svc(e.svc),e.cause));
+  for(const s of G.svcs)[600,780,960].forEach((m,k)=>{const at=base+DAYMIN+m+s.i*20-DAYMIN,key=G.day+s.id+k;if(G.t>=at&&!G.dd[key]){G.dd[key]=1;deploy(s)}});
+  for(const s of G.svcs)for(const c in HAZ){let r=HAZ[c]*s.haz*ramp*(c==='spike'?traf:1);if(G.pm[s.id+':'+c])r*=.3;if(Math.random()<r*dt/60)spawn(s,c)}
+  if(Math.random()<(G.up.burn?.05:.2)*ramp*dt/60)spawnNoise();
+  for(const inc of G.incs){
+    if(inc.task&&G.t>=inc.task.end)complete(inc);
+    if(inc.noise){
+      if(inc.state==='hidden')page(inc);
+      else if(inc.state==='open'&&G.t-inc.lastPage>=15){pageHit();G.noisePages++;inc.lastPage=G.t}
+      if(inc.state!=='resolved'&&!inc.task&&G.t>=inc.expireAt)resolve(inc,'#'+inc.id+' cleared on its own (flapping alert).','');
+      continue;
+    }
+    if(inc.state!=='resolved'){const tau={leak:40,cert:2}[inc.cause]||6,tg=inc.sev*(inc.cause==='spike'?traf/1.2:1);inc.err+=(tg-inc.err)*Math.min(1,dt/tau)}
+    else inc.err*=Math.exp(-dt/4);
+    if(inc.autoAt&&G.t>=inc.autoAt&&inc.state!=='resolved'){const pre=inc.state==='hidden';G.st.auto++;resolve(inc,'Automation fixed #'+inc.id+' ('+CAUSES[inc.cause].n+', '+svc(inc.svc).name+')'+(pre?' before anyone was paged.':'.'));continue}
+    if(inc.state==='hidden'&&G.t>=inc.detectAt)page(inc);
+    else if(inc.state==='dismissed'&&G.t>=inc.repageAt){inc.title='RE-PAGE: '+inc.title.replace(/^RE-PAGE: /,'');page(inc)}
+    else if(inc.state==='open'&&G.t-inc.lastPage>=30){const oc=oncall();if(oc)oc.fat+=1.5;G.pages++;inc.lastPage=G.t;log('#'+inc.id+' still unacknowledged — escalating.','bad');beep()}
+  }
+  for(const s of G.svcs){
+    s.err=Math.min(1,.0004+Math.random()*.0003+G.incs.filter(i=>i.svc===s.id).reduce((a,i)=>a+i.err,0));
+    s.bad+=s.err*traf*dt;
+    if(!s.exhausted&&s.bad>=s.budget){s.exhausted=true;log(s.name+' has exhausted its error budget. Policy says: freeze releases.','bad');toast(s.name+': error budget exhausted')}
+  }
+  for(const e of G.team){
+    if(e.out)continue;
+    if(e.busy!=null)e.fat+=(night()?.7:.32)*dt;else e.fat=Math.max(0,e.fat-.06*dt);
+    if(e.fat>=100){e.fat=100;e.out=true;G.burnouts++;const inc=G.incs.find(i=>i.id===e.busy);if(inc){inc.task=null;inc.state='open'}e.busy=null;log(e.name+' has burned out and is offline for the rest of the shift.','bad');toast(e.name+' burned out')}
+  }
+  G.incs=G.incs.filter(i=>!(i.state==='resolved'&&G.t-i.resolvedAt>45&&i.err<.0005));
+  if(G.sel&&!G.incs.find(i=>i.id===G.sel))G.sel=null;
+  if(G.t-G.lastSample>=5){G.lastSample=G.t;G.svcs.forEach(s=>{s.hist.push(s.err);if(s.hist.length>48)s.hist.shift()})}
+  if(G.t>=G.day*DAYMIN+8*60)endShift();
+}
+/* ---------- rendering ---------- */
+function buildSvcs(){
+  $('#svcs').innerHTML=G.svcs.map(s=>`<article class="p svc" id="s-${s.id}"><div class="sh"><span class="dot"></span><b>${s.name}</b><span class="slo">SLO ${s.slo}%</span></div>
+  <div class="nums"><div><small>Burn rate</small><span class="big mono" data-k="burn">0×</span></div><div><small>Errors now</small><span class="mono" data-k="err">0%</span></div><div><small>Traffic</small><span class="mono" data-k="traf">1.0×</span></div></div>
+  <div class="spark"><canvas></canvas></div>
+  <div class="bl"><small>Error budget left (5-day window)</small><span class="mono" data-k="bud">100%</span></div><div class="track"><i></i></div>
+  <div class="sf"><span data-k="next"></span><button class="btn" data-act="freeze" data-svc="${s.id}">Freeze</button></div></article>`).join('');
+}
+function spark(s,cv){
+  const W=cv.clientWidth,H=cv.clientHeight,d=devicePixelRatio||1;if(!W)return;
+  if(cv.width!==W*d){cv.width=W*d;cv.height=H*d}
+  const x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,W,H);
+  const lim=(100-s.slo)/100,mx=Math.max(lim*3,...s.hist)*1.1,n=s.hist.length;
+  const Y=v=>H-2-(v/mx)*(H-4),X=i=>i/(n-1)*W;
+  x.strokeStyle='#8a909c';x.setLineDash([3,4]);x.beginPath();x.moveTo(0,Y(lim));x.lineTo(W,Y(lim));x.stroke();x.setLineDash([]);
+  const hot=s.err>lim;x.beginPath();s.hist.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(0,Y(v)));
+  x.lineTo(W,H);x.lineTo(0,H);x.closePath();x.fillStyle=hot?'#e5322d33':'#2f5cff22';x.fill();
+  x.beginPath();s.hist.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(0,Y(v)));x.strokeStyle=hot?'#e5322d':'#2f5cff';x.lineWidth=2;x.stroke();
+}
+function nextDeploy(s){
+  if(s.frozen)return 'Change freeze on';
+  for(let d=G.day;d<=DAYS;d++)for(let k=0;k<3;k++){const at=(d-1)*DAYMIN+[600,780,960][k]+s.i*20;if(at>G.t&&!G.dd[d+s.id+k])return 'Next release '+(d>G.day?'tomorrow ':'')+hhmm(at)}
+  return 'No releases left';
+}
+function uiSvcs(){
+  const traf=tf(hour());
+  for(const s of G.svcs){
+    const el=$('#s-'+s.id),b=burnOf(s),rem=1-s.bad/s.budget,q=k=>el.querySelector(`[data-k=${k}]`);
+    q('burn').textContent=b.toFixed(1)+'×';q('burn').style.color=b>=14.4?'var(--red)':b>=2?'var(--amber)':'';
+    q('err').textContent=(s.err*100).toFixed(2)+'%';q('traf').textContent=traf.toFixed(1)+'×';
+    q('bud').textContent=Math.round(rem*100)+0+'%';q('bud').style.color=rem<=0?'var(--red)':'';
+    const bar=el.querySelector('.track i');bar.style.width=Math.max(0,rem*100)+'%';bar.style.background=rem<.25?'var(--red)':rem<.5?'var(--amber)':'var(--ok)';
+    q('next').textContent=nextDeploy(s);
+    const dot=el.querySelector('.dot');dot.className='dot'+(b>=6?' bad':b>=1?' warn':'');
+    el.classList.toggle('burning',b>=6);
+    const fb=el.querySelector('[data-act=freeze]');fb.textContent=s.frozen?'Unfreeze':'Freeze';fb.classList.toggle('on',s.frozen);
+    spark(s,el.querySelector('canvas'));
+  }
+}
+const vis=()=>G.incs.filter(i=>i.state!=='hidden'&&i.state!=='dismissed');
+const rank={open:0,working:1,resolved:2};
+let sigQ='',sigD='',sigT='',sigL=-1;
+function uiQueue(){
+  const L=vis().sort((a,b)=>rank[a.state]-rank[b.state]||b.id-a.id);
+  const sig=L.map(i=>i.id+i.state+i.title+(i.task?i.task.eng:'')).join('|')+G.sel;
+  if(sig!==sigQ){sigQ=sig;$('#queue').innerHTML=L.length?L.map(i=>`<button class="inc ${i.state} ${i.id===G.sel?'sel':''}" data-act="sel" data-id="${i.id}"><span class="chip ${i.state}">${i.state==='open'?'PAGE':i.state==='working'?'WORK':'DONE'}</span><span class="t">#${i.id} ${i.title}</span><span class="mono" data-age="${i.id}"></span><span class="m">${svc(i.svc).name}${i.task?' · '+G.team[i.task.eng].name:''}</span></button>`).join(''):'<div class="empty">Pager is quiet. Enjoy it while it lasts.</div>'}
+  L.forEach(i=>{const a=document.querySelector(`[data-age="${i.id}"]`);if(a)a.textContent=Math.floor((i.resolvedAt??G.t)-(i.openedAt??i.t0))+'m'});
+}
+function avail(){return G.team.filter(e=>!e.out&&e.busy==null)}
+function uiDetail(){
+  const inc=G.incs.find(i=>i.id===G.sel);
+  const av=avail();if(G.pickEng==null||!av.find(e=>e.id===G.pickEng))G.pickEng=av.length?av.sort((a,b)=>a.fat-b.fat)[0].id:null;
+  const sig=inc?[inc.id,inc.state,inc.diag&&inc.diag.cause,inc.tried.length,inc.task&&inc.task.kind,av.map(e=>e.id).join(''),G.pickEng,inc.title].join('/'):'none';
+  if(sig!==sigD){sigD=sig;
+    if(!inc){$('#det').innerHTML='<h2>Incident</h2><div class="empty">Nothing selected. When the pager goes off, pick the page here, assign someone, and decide: investigate first, or act on a hunch?</div>'}
+    else{
+      const s=svc(inc.svc);let h=`<h3>#${inc.id} ${inc.title}</h3><div class="meta">${s.name} · opened ${hhmm(inc.openedAt??inc.t0)} · service burn <b class="mono" id="d-burn"></b></div>`;
+      if(inc.diag)h+=`<div class="clue"><b>${inc.diag.by}'s read (${inc.diag.conf} confidence):</b> ${CAUSES[inc.diag.cause].clue}</div>`;
+      if(inc.tried.length)h+=`<div class="tried">Tried with no effect: ${inc.tried.map(k=>ACTIONS[k].n).join(', ')}</div>`;
+      if(inc.state==='resolved')h+=`<div class="clue">${inc.msg}</div>`;
+      else if(inc.task){const e=G.team[inc.task.eng];h+=`<div class="lbl">${e.name} — ${inc.task.kind==='inv'?'investigating':ACTIONS[inc.task.kind].n.toLowerCase()} · <span class="mono" id="d-left"></span> left</div><div class="prog"><i id="d-prog"></i></div><button class="btn" data-act="cancel">Cancel task</button>`}
+      else{
+        h+=`<div class="lbl">Assign</div><div class="row">${G.team.map(e=>`<button class="btn ${e.id===G.pickEng?'on':''}" data-act="eng" data-id="${e.id}" ${e.out||e.busy!=null?'disabled':''}>${e.name} <span class="mono">${Math.round(e.fat)}</span></button>`).join('')}</div>`;
+        const dis=G.pickEng==null?'disabled':'',inv=inc.noise?15:(G.up['rb_'+inc.cause]?10:20);
+        h+=`<div class="lbl">Diagnose</div><div class="row"><button class="btn pri" data-act="do" data-k="inv" ${dis}>Investigate · ${inv}m</button><button class="btn warn" data-act="dismiss">Dismiss as noise</button></div>`;
+        h+=`<div class="lbl">Remediate</div><div class="acts">${Object.entries(ACTIONS).map(([k,a])=>`<button class="btn" data-act="do" data-k="${k}" ${dis}>${a.n}<span>${a.t} min</span></button>`).join('')}</div>`;
+        if(G.pickEng==null)h+='<div class="tried">Everyone is busy or offline.</div>';
+      }
+      $('#det').innerHTML=h;
+    }
+  }
+  if(inc){const b=$('#d-burn');if(b)b.textContent=burnOf(svc(inc.svc)).toFixed(1)+'×';
+    if(inc.task){const p=$('#d-prog'),l=$('#d-left');if(p)p.style.width=((G.t-inc.task.start)/(inc.task.end-inc.task.start)*100)+'%';if(l)l.textContent=Math.ceil(inc.task.end-G.t)+'m'}}
+}
+function face(e){const f=e.out?'M13 27q5-3 10 0':e.fat>70?'M13 26h10':'M13 25q5 4 10 0';return `<svg class="face" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="${e.c}"/><circle cx="18" cy="20" r="11" fill="#fff" opacity=".92"/><circle cx="14" cy="18" r="1.6" fill="#14161a"/><circle cx="22" cy="18" r="1.6" fill="#14161a"/><path d="${f}" stroke="#14161a" stroke-width="1.8" fill="none" stroke-linecap="round"/>${e.fat>70&&!e.out?'<path d="M9 14h6M21 14h6" stroke="#14161a" stroke-width="1.4"/>':''}</svg>`}
+function uiTeam(){
+  const sig=G.team.map(e=>[e.busy,e.out,e.fat>70].join()).join('|')+G.primary;
+  if(sig!==sigT){sigT=sig;$('#team').innerHTML=G.team.map(e=>{const inc=G.incs.find(i=>i.id===e.busy);return `<div class="eng ${e.out?'out':''}">${face(e)}<b>${e.name}</b>${G.primary===e.id?'<span class="badge">Primary on-call</span>':'<span class="badge" style="color:var(--mute)">Secondary</span>'}<small>${e.out?'Burned out — offline':inc?(inc.task.kind==='inv'?'Investigating':'Remediating')+' #'+inc.id:'Available'}</small><div class="track"><i id="f-${e.id}"></i></div><small class="mono" id="fl-${e.id}" style="min-height:0"></small></div>`}).join('')}
+  G.team.forEach(e=>{const b=$('#f-'+e.id);b.style.width=e.fat+'%';b.style.background=e.fat>70?'var(--red)':e.fat>45?'var(--amber)':'var(--ok)';$('#fl-'+e.id).textContent='Fatigue '+Math.round(e.fat)});
+}
+function ui(){
+  $('#clock').textContent=hhmm(G.t);$('#tday').textContent='Day '+Math.min(G.day,DAYS)+' of '+DAYS+(night()?' · night':'')+(G.paused&&G.running?' · paused':'');
+  $('#feat').textContent=G.features+' / '+TARGET;$('#toil').textContent=G.toil.toFixed(1);$('#pages').textContent=G.pages;
+  $('#bpause').textContent=G.paused?'▶':'❚❚';$('#bpause').setAttribute('aria-label',G.paused?'Resume':'Pause');
+  uiSvcs();uiQueue();uiDetail();uiTeam();
+  if(G.log.length&&(G.log.length!==sigL||G.log[0]!==uiLast)){sigL=G.log.length;uiLast=G.log[0];$('#log').innerHTML=G.log.slice(0,40).map(l=>`<li class="${l.cls}"><time class="mono">D${l.d} ${hhmm(l.t)}</time><span>${l.msg}</span></li>`).join('')}
+}
+let uiLast=null;
+/* ---------- overlays ---------- */
+function intro(){
+  $('#modal').innerHTML=`<h1>Burn Rate</h1><p style="font-size:17px">You lead on-call for four SaaS services over a five-day sprint. Product wants ${TARGET} features shipped. Your SLOs want you to stop shipping. Your team wants to sleep. You can't give everyone what they want — spend your error budget like it's money.</p>
+  <div class="how"><div><b>Watch the burn</b>Each service has an SLO and a five-day error budget. Burn rate is how fast you're spending it: 1× spends it exactly on schedule; 14.4× is a fire.</div>
+  <div><b>Work the pager</b>Pages arrive with a title that may be wrong — or noise. Assign an engineer, investigate (slower, informative) or act on a hunch (faster, risky). Check the service's burn before trusting an alert.</div>
+  <div><b>Mind the humans</b>Every page and every task tires your people, twice as much at night. Fatigue over 70 makes them slow and wrong. At 100 they burn out.</div>
+  <div><b>Plan the next day</b>At each 08:00 handoff you spend engineering points on postmortems, automation, runbooks or better alerts. Toil eats those points. Leftovers become features.</div></div>
+  <p class="tried">Releases go out at 10:00, 13:00 and 16:00. Freeze a service to stop its releases. Space pauses; 1, 2, 3 set speed.</p>
+  <button class="btn pri" data-act="start" style="font-size:17px;padding:10px 22px">Take the pager</button>`;
+  $('#ov').hidden=false;
+}
+function endShift(){
+  G.running=false;G.paused=true;
+  if(G.day>=DAYS)return final();
+  const pts=Math.max(1,8-Math.round(G.toil));G.plan={pts,picks:new Set(),toilCost:8-pts};renderPlan();$('#ov').hidden=false;
+}
+function planItems(){
+  const pms=[],seen=new Set();
+  G.today.forEach(r=>{const k=r.svc+':'+r.cause;if(seen.has(k)||G.pm[k])return;seen.add(k);pms.push({id:'pm:'+k,g:'Postmortem action items',n:'Fix '+CAUSES[r.cause].n.toLowerCase()+' in '+svc(r.svc).name,c:1,d:r.cause==='deploy'?'Better tests and rollout checks: bad-deploy odds here drop 60%.':'Fix the root cause: this incident type here becomes 70% rarer.'+(r.cause==='leak'?' Stops restart recurrences.':'')})});
+  return [...pms,...UP.filter(u=>!(u.id==='auto_cert'&&G.up.auto_cert))];
+}
+function renderPlan(){
+  const P=G.plan,items=planItems(),spent=[...P.picks].reduce((a,id)=>a+items.find(i=>i.id===id).c,0),left=P.pts-spent;
+  const groups=[...new Set(items.map(i=>i.g))];
+  $('#modal').innerHTML=`<h1>Day ${G.day} handoff</h1><p>${G.dayStats.incidents} real incidents, ${G.dayStats.pages} pages, ${G.today.length} resolved. Primary on-call rotates to ${G.team[(G.primary+1)%4].name}.</p>
+  <div class="pts">Engineering capacity: <b class="mono">${left}</b> of ${P.pts} points left${P.toilCost>0?` <span class="tried">(toil consumed ${P.toilCost} of 8)</span>`:''}</div>
+  ${groups.map(g=>`<h4>${g}</h4><div class="cards">${items.filter(i=>i.g===g).map(i=>{const own=G.up[i.id]&&!i.rep,pk=P.picks.has(i.id);return `<button class="card ${pk?'picked':''}" data-act="pick" data-id="${i.id}" ${own||(!pk&&i.c>left)?'disabled':''}><b><span>${i.n}</span><span class="mono">${own?'owned':i.c+' pt'}</span></b><small>${i.d}</small></button>`}).join('')}</div>`).join('')}
+  <p>Unspent points go to feature work: <b>+${left}</b> feature${left===1?'':'s'}.</p>
+  <button class="btn pri" data-act="nextday" style="font-size:17px;padding:10px 22px">Start day ${G.day+1}</button>`;
+  P.left=left;
+}
+function nextDay(){
+  const P=G.plan;let rest=0;
+  P.picks.forEach(id=>{if(id.startsWith('pm:'))G.pm[id.slice(3)]=true;else if(id==='rest')rest++;else G.up[id]=true});
+  G.features+=P.left;if(P.left)log('Leftover capacity shipped '+P.left+' feature(s).');
+  G.team.forEach(e=>{if(e.out){e.out=false;e.fat=60}else e.fat=Math.max(0,e.fat-35-25*rest)});
+  G.primary=(G.primary+1)%4;G.toil=0;G.today=[];G.dayStats={pages:0,incidents:0};G.day++;
+  log('Day '+G.day+' begins. '+G.team[G.primary].name+' holds the pager.');
+  $('#ov').hidden=true;G.running=true;G.paused=false;
+}
+function final(){
+  const rows=G.svcs.map(s=>({s,rem:1-s.bad/s.budget}));
+  const rel=rows.reduce((a,r)=>a+(r.rem>=0?12.5:Math.max(0,12.5*(1+r.rem))),0);
+  const vel=30*Math.min(1,G.features/TARGET);
+  const avgF=G.team.reduce((a,e)=>a+e.fat,0)/4,team=Math.max(0,20*(1-avgF/100)-5*G.burnouts);
+  const score=Math.round(rel+vel+team);
+  const title=score>=85?'Principal SRE':score>=70?'Senior SRE':score>=55?'Site Reliability Engineer':score>=40?'Hero-culture survivor':'Pager zombie';
+  const L=[];
+  if(rows.some(r=>r.rem<0)&&G.st.exhaustedShips>0)L.push(`You shipped ${G.st.exhaustedShips} release(s) on services with no error budget left. That's the moment a budget policy exists for.`);
+  if(rows.every(r=>r.rem>.6)&&G.features<TARGET*.75)L.push('Lots of budget left unspent while features lagged. Unused error budget is velocity you paid for and never used.');
+  if(G.noisePages>8&&!G.up.burn)L.push(`${G.noisePages} pages were pure noise. Alerting on symptoms (burn rate) instead of causes (CPU, heap) is the cheapest sleep you can buy.`);
+  if(G.burnouts)L.push(`${G.burnouts} burnout(s). Heroics feel like reliability until the hero goes offline mid-incident.`);
+  if(G.st.auto)L.push(`Automation quietly fixed ${G.st.auto} incident(s), many before a human was paged. That's toil you never paid for.`);
+  if(!Object.keys(G.pm).length)L.push('No postmortem action items were funded, so the same failures kept coming back.');
+  if(!L.length)L.push('Balanced run: budget spent on purpose, people rested, product got its features. Write it up as the playbook.');
+  const ttr=G.st.ttr.length?Math.round(G.st.ttr.reduce((a,b)=>a+b,0)/G.st.ttr.length):0;
+  $('#modal').innerHTML=`<p class="tried">Sprint complete</p><div class="grade mono">${score}</div><h1>${title}</h1>
+  <table><thead><tr><th>Service</th><th class="n">SLO</th><th class="n">Budget left</th><th>Result</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.s.name}</td><td class="n mono">${r.s.slo}%</td><td class="n mono">${(r.rem*100).toFixed(0)}%</td><td style="color:${r.rem>=0?'var(--ok)':'var(--red)'}">${r.rem>=0?'SLO met':'SLO missed'}</td></tr>`).join('')}</tbody></table>
+  <div class="how"><div><b>Reliability ${rel.toFixed(0)} / 50</b>SLOs met across four services.</div><div><b>Velocity ${vel.toFixed(0)} / 30</b>${G.features} of ${TARGET} features shipped.</div><div><b>Team ${team.toFixed(0)} / 20</b>Average fatigue ${avgF.toFixed(0)}, ${G.burnouts} burnout(s).</div><div><b>Ops</b>${G.st.real} incidents, mean time to resolve ${ttr} min, ${G.pages} pages (${G.noisePages} noise).</div></div>
+  <h4>Retro</h4><ul>${L.map(l=>`<li>${l}</li>`).join('')}</ul>
+  <button class="btn pri" data-act="again" style="font-size:17px;padding:10px 22px">Run another sprint</button>`;
+  $('#ov').hidden=false;
+}
+/* ---------- input ---------- */
+function setSpeed(v){G.speed=v;document.querySelectorAll('[data-act=speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===v))}
+document.addEventListener('click',ev=>{
+  const b=ev.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act,inc=G.incs.find(i=>i.id===G.sel);
+  if(a==='start'){$('#ov').hidden=true;G.running=true;G.paused=false;log('Day 1 begins. '+G.team[0].name+' holds the pager.');try{AC=AC||new AudioContext()}catch(e){}}
+  else if(a==='pause'){if(G.running)G.paused=!G.paused}
+  else if(a==='speed')setSpeed(+b.dataset.v);
+  else if(a==='mute'){muted=!muted;b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',muted)}
+  else if(a==='freeze'){const s=svc(b.dataset.svc);s.frozen=!s.frozen;log(s.name+(s.frozen?' change freeze ON.':' change freeze lifted.'))}
+  else if(a==='sel'){G.sel=+b.dataset.id}
+  else if(a==='eng'){G.pickEng=+b.dataset.id}
+  else if(a==='do'&&inc&&G.running)startTask(inc,G.pickEng,b.dataset.k);
+  else if(a==='cancel'&&inc&&inc.task){G.team[inc.task.eng].busy=null;inc.task=null;inc.state='open';inc.lastPage=G.t}
+  else if(a==='dismiss'&&inc){if(inc.noise)resolve(inc,'#'+inc.id+' dismissed as noise. Good call.','');else{inc.state='dismissed';inc.repageAt=G.t+20;G.st.dismissedReal++;log('#'+inc.id+' dismissed. ('+svc(inc.svc).name+' is still burning…)');G.sel=null}}
+  else if(a==='pick'){const P=G.plan;P.picks.has(b.dataset.id)?P.picks.delete(b.dataset.id):P.picks.add(b.dataset.id);renderPlan()}
+  else if(a==='nextday')nextDay();
+  else if(a==='again'){newGame();buildSvcs();sigQ=sigD=sigT='';sigL=-1;intro();setSpeed(1)}
+  sigD='';ui();
+});
+document.addEventListener('keydown',e=>{if(!$('#ov').hidden||e.target.closest('input,textarea'))return;if(e.code==='Space'){e.preventDefault();if(G.running)G.paused=!G.paused}if(['1','2','3'].includes(e.key))setSpeed([1,2,4][+e.key-1])});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.running)G.paused=true});
+let last=performance.now(),uiT=0;
+function frame(now){const real=Math.min(.25,(now-last)/1000);last=now;
+  if(G.running&&!G.paused){let gm=real*SCALE*G.speed;while(gm>0&&G.running){const d=Math.min(1,gm);step(d);gm-=d}}
+  uiT+=real;if(uiT>.1){uiT=0;ui()}requestAnimationFrame(frame)}
+newGame();buildSvcs();intro();ui();requestAnimationFrame(frame);
+}
+</script></body></html>
