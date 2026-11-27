@@ -2,449 +2,661 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Burn Rate</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@500;600&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
 <style>
-/* VOICE: tense, wry war-room game; terse console copy, real SRE vocabulary
-IDEA: a pager clipped to a NOC status wall — SLOs are the scoreboard, the error budget is your life bar
-PICTURE: four live service racks with sparklines and draining budget bars that flare red when they burn
-COLOUR and TYPE: graphite pager housing, white panels, signal red for burn, cobalt for action; Archivo, Inter, JetBrains Mono figures
-LAYOUT: pager bar on top, racks left, incident queue + detail right, team + log below; stacks under 900px */
-:root{color-scheme:light dark;--bg:light-dark(#e9ebef,#0d0f12);--panel:light-dark(#fff,#181b20);--soft:light-dark(#f3f4f7,#20242b);--line:light-dark(#d6d9e0,#2c313a);--ink:light-dark(#14161a,#eef0f3);--mute:light-dark(#5b6170,#9ca3af);--red:#e5322d;--redsoft:light-dark(#fde7e6,#3a1816);--blue:light-dark(#2f5cff,#7390ff);--bluesoft:light-dark(#e6ecff,#1c2445);--amber:light-dark(#a86400,#f2a20c);--ok:light-dark(#18804a,#3ccf7e)}
-:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+/* VOICE: war-room wit; terse, plain verbs, real SRE vocabulary
+IDEA: the incident whiteboard — topology in marker, pages as sticky notes, engineers as magnets, status page pinned beside it
+PICTURE: the live dependency map; red marker spreads along edges as failures cascade
+COLOUR and TYPE: whiteboard white, marker black/red/blue, sticky yellow, aluminium frame; Kalam on the board, Atkinson Hyperlegible for UI, Plex Mono for clock and figures
+LAYOUT: thin top bar; board (map + sticky column + magnet tray) left, node card + status placard right; SLO row and log below */
+:root{color-scheme:light;--wall:#e4e6e3;--board:#f6f7f5;--ink:#1c1f26;--mute:#5d6470;--faint:#c3c8cf;--red:#d8342a;--redt:#fde3df;--amber:#c47a00;--ambt:#fff2cc;--blue:#2456c9;--bluet:#e3ebfc;--ok:#1f8a55;--okt:#e2f3e9;--sticky:#ffe27a;--sticky2:#d6e8ff;--alu:#c7cbd1;--card:#fff}
 *{box-sizing:border-box;min-width:0}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,system-ui,sans-serif;overflow-x:clip}
+body{margin:0;background:var(--wall);color:var(--ink);font:16px/1.45 "Atkinson Hyperlegible",system-ui,sans-serif;overflow-x:clip}
 button{font:inherit;color:inherit;cursor:pointer}
-button:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
-.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
-.top{background:#15171b;color:#f3f4f6;display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;padding:10px max(2vw,12px);border-bottom:4px solid var(--red);position:sticky;top:0;z-index:5}
-.logo{font:800 24px/1 Archivo,sans-serif;display:flex;align-items:center;gap:10px}
-.logo svg{width:28px;height:28px}
-.clock{font-size:24px;font-weight:700}
-.tday{color:#aab1bd;font-size:13px}
-.stat{display:flex;flex-direction:column;font-size:12px;color:#aab1bd}.stat b{color:#fff;font-size:16px}
-.ctl{display:flex;gap:6px;margin-left:auto}
-.ctl button{background:#262a31;border:1px solid #3a3f48;border-radius:8px;min-width:44px;height:40px;padding:0 10px;color:#f3f4f6;font-weight:600}
-.ctl button[aria-pressed=true]{background:var(--red);border-color:var(--red)}
-.main{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:14px max(2vw,12px);max-width:1440px;margin:auto}
-.svcs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-content:start}
-.p{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-.svc{position:relative;transition:box-shadow .3s}
-.svc.burning{box-shadow:0 0 0 2px var(--red)}
-.sh{display:flex;align-items:center;gap:8px}.sh b{font:700 16px Archivo,sans-serif}.sh .slo{margin-left:auto;color:var(--mute);font-size:12px}
-.dot{width:10px;height:10px;border-radius:50%;background:var(--ok);flex:none}
-.dot.warn{background:var(--amber)}.dot.bad{background:var(--red);animation:pulse 1s infinite}
-@keyframes pulse{50%{opacity:.3}}
-.nums{display:flex;gap:18px;margin:8px 0 4px}.nums small,.bl small{display:block;color:var(--mute);font-size:12px}
-.big{font-size:28px;font-weight:700;line-height:1.1}
-.spark{height:56px;position:relative;margin:4px 0 8px}.spark canvas{position:absolute;inset:0;width:100%;height:100%}
-.bl{display:flex;justify-content:space-between;align-items:end}
-.track{height:10px;background:var(--soft);border-radius:6px;overflow:hidden;margin-top:4px}
-.track i{display:block;height:100%;background:var(--ok);transition:width .3s}
-.sf{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:13px;color:var(--mute)}
-.btn{background:var(--soft);border:1px solid var(--line);border-radius:8px;min-height:40px;padding:6px 12px;font-weight:600}
-.btn:hover{border-color:var(--mute)}
-.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
-.btn.warn{background:var(--redsoft);border-color:var(--red);color:var(--red)}
-.btn[disabled]{opacity:.45;cursor:not-allowed}
-.btn.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
-h2{font:800 20px/1.1 Archivo,sans-serif;margin:0 0 10px}
-.side{display:flex;flex-direction:column;gap:12px}
-.queue{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow:auto}
-.inc{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:4px 10px;align-items:center;text-align:left;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:8px 10px;min-height:44px}
-.inc.sel{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
-.inc .t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.inc .m{grid-column:2/4;font-size:12px;color:var(--mute)}
-.chip{font:700 11px "JetBrains Mono",monospace;padding:3px 6px;border-radius:5px;background:var(--red);color:#fff}
-.chip.working{background:var(--blue)}.chip.resolved{background:var(--ok)}
-.inc.open .chip{animation:pulse 1.2s infinite}
-.inc.resolved{opacity:.6}
-.empty{color:var(--mute);font-size:14px;padding:10px 0}
-.det h3{font:700 17px/1.25 Archivo,sans-serif;margin:0 0 4px}
-.meta{font-size:13px;color:var(--mute);margin-bottom:8px}
-.clue{background:var(--bluesoft);border-radius:8px;padding:8px 10px;margin:8px 0;font-size:14px}
-.tried{font-size:13px;color:var(--mute);margin:6px 0}
-.lbl{font-size:12px;color:var(--mute);margin:10px 0 6px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.hand{font-family:Kalam,cursive}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:8px 26px;padding:10px max(2vw,14px);background:var(--board);border-bottom:2px solid var(--ink)}
+.logo{font:700 28px/1 Kalam,cursive;display:flex;align-items:center;gap:6px;transform:rotate(-1.5deg)}
+.logo svg{width:30px;height:30px}
+.clk{font-size:26px;font-weight:600;line-height:1}
+.sub{font-size:13px;color:var(--mute)}
+.st{display:flex;flex-direction:column;font-size:13px;color:var(--mute);line-height:1.2}.st b{font:600 18px "IBM Plex Mono",monospace;color:var(--ink)}
+.tm{width:92px;height:6px;background:var(--faint);border-radius:3px;margin-top:4px;overflow:hidden}.tm i{display:block;height:100%;background:var(--ok)}
+.ctl{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.ctl button{background:var(--card);border:2px solid var(--ink);border-radius:10px;min-width:44px;height:42px;padding:0 10px;font-weight:700}
+.ctl button[aria-pressed=true]{background:var(--ink);color:var(--board)}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;padding:16px max(2vw,14px) 0;max-width:1500px;margin:auto}
+.frame{align-self:start;background:var(--alu);border-radius:14px;padding:10px;box-shadow:inset 0 1px 0 #fff8,0 2px 0 #9aa0a8}
+.board{background:var(--board);border-radius:6px;display:grid;grid-template-columns:minmax(0,1fr) 230px;min-height:420px;position:relative;box-shadow:inset 0 0 0 1px #0001}
+.map{position:relative;padding:6px}
+.map svg{display:block;width:100%;height:auto;user-select:none;-webkit-user-select:none}
+.notes{border-left:2px dashed var(--faint);padding:12px 10px;display:flex;flex-direction:column;gap:10px;max-height:620px;overflow:auto}
+.notes h2{font:700 22px Kalam,cursive;margin:0}
+.note{position:relative;background:var(--sticky);padding:10px 10px 8px;box-shadow:0 3px 6px #0002;font:400 16px/1.2 Kalam,cursive;border:0;text-align:left;width:100%;transform:rotate(var(--r,0deg))}
+.note.ack{background:var(--sticky2)}.note.cl{opacity:.45}
+.note.sel{outline:3px solid var(--blue);outline-offset:2px}
+.note .nm{display:block;font:700 12px "Atkinson Hyperlegible",sans-serif;color:var(--mute);margin-top:4px}
+.note .nb{display:flex;gap:6px;margin-top:6px}
+.note .nb button{font:700 13px "Atkinson Hyperlegible",sans-serif;background:#fff9;border:1.5px solid var(--ink);border-radius:7px;padding:4px 8px;min-height:32px}
+.note .cnt{position:absolute;top:-8px;right:-6px;background:var(--red);color:#fff;font:700 12px "Atkinson Hyperlegible";border-radius:10px;padding:2px 7px}
+.note.fresh{animation:slap .35s ease-out}
+@keyframes slap{from{transform:translateY(-16px) rotate(6deg);opacity:0}}
+.quiet{color:var(--mute);font:16px Kalam,cursive}
+.tray{grid-column:1/-1;margin:8px -4px -4px;background:linear-gradient(#d3d6db,#b8bdc4);border-radius:0 0 10px 10px;padding:10px 12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tray .lab{font-size:13px;color:#3d434c;max-width:150px}
+.mag{display:flex;align-items:center;gap:8px;background:#fff6;border-radius:30px;padding:4px 12px 4px 4px;border:0;touch-action:none;min-height:52px}
+.mag svg{width:48px;height:48px;flex:none;filter:drop-shadow(0 3px 2px #0004)}
+.mag b{display:block;font-size:15px;line-height:1.1}.mag small{font-size:12px;color:#3d434c}
+.mag.busy,.mag.out{cursor:default}.mag.out{opacity:.5}
+.mag:not(.busy):not(.out){cursor:grab}
+.dragging,.dragging *{user-select:none!important;-webkit-user-select:none!important;cursor:grabbing!important}
+.ghost{position:fixed;z-index:50;pointer-events:none;width:56px;height:56px;margin:-28px 0 0 -28px;filter:drop-shadow(0 8px 6px #0005)}
+.side{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:14px 16px}
+.card h2{font:700 24px/1.1 Kalam,cursive;margin:0 0 4px}
+.card h3{font:700 20px/1.15 Kalam,cursive;margin:0}
+.muted{color:var(--mute);font-size:14px}
+.mrow{display:flex;gap:18px;margin:10px 0}.mrow small{display:block;color:var(--mute);font-size:13px}.mrow b{font:600 22px "IBM Plex Mono",monospace}
+.deps{margin:8px 0;display:flex;flex-direction:column;gap:6px}
+.dep{display:grid;grid-template-columns:minmax(0,1fr) 70px 46px;gap:8px;align-items:center;font-size:14px;background:none;border:0;padding:2px 0;text-align:left}
+.bar{height:8px;background:#edeff1;border-radius:4px;overflow:hidden}.bar i{display:block;height:100%;background:var(--red)}
+.intel{background:var(--bluet);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:15px}
+.intel p{margin:4px 0 0}
+.lbl{font-size:13px;color:var(--mute);margin:12px 0 6px}
 .row{display:flex;flex-wrap:wrap;gap:6px}
-.acts{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
-.acts .btn{text-align:left;font-size:14px}.acts .btn span{display:block;font-weight:500;color:var(--mute);font-size:12px}
-.prog{height:8px;background:var(--soft);border-radius:5px;overflow:hidden;margin:6px 0}.prog i{display:block;height:100%;background:var(--blue)}
-.lower{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:14px;padding:0 max(2vw,12px) 24px;max-width:1440px;margin:auto}
-.team{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.eng{background:var(--soft);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px}
-.eng .face{width:38px;height:38px}
-.eng b{font-size:15px}.eng small{color:var(--mute);font-size:12px;min-height:2.6em}
-.eng.out{opacity:.5}
-.badge{font-size:11px;font-weight:700;color:var(--red)}
-.log{list-style:none;margin:0;padding:0;max-height:210px;overflow:auto;font-size:13px}
-.log li{padding:4px 0;border-bottom:1px solid var(--line);display:flex;gap:8px}.log time{color:var(--mute);flex:none}
-.log li.bad{color:var(--red)}.log li.good{color:var(--ok)}
-.toast{position:fixed;right:16px;bottom:16px;z-index:9;display:flex;flex-direction:column;gap:8px;pointer-events:none}
-.toast div{background:#15171b;color:#fff;border-left:4px solid var(--red);padding:10px 14px;border-radius:8px;max-width:340px;box-shadow:0 8px 24px #0005;font-size:14px;animation:tin .25s}
-@keyframes tin{from{transform:translateX(30px);opacity:0}}
-.ov{position:fixed;inset:0;background:#0b0d10cc;z-index:20;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:4vh 12px}
+.btn{background:var(--card);border:2px solid var(--ink);border-radius:10px;min-height:44px;padding:6px 12px;font-weight:700}
+.btn:hover:not([disabled]){background:#f0f2f4}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.on{background:var(--ink);color:#fff}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.acts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.acts .btn{font-size:14px;padding:6px 8px;text-align:left}.acts .btn span{display:block;font-weight:400;font-size:12px;color:var(--mute)}
+.prog{height:10px;background:#edeff1;border-radius:5px;overflow:hidden;margin:8px 0}.prog i{display:block;height:100%;background:var(--blue)}
+.placard{background:#fff;border:2px solid var(--ink);border-radius:4px;padding:14px 16px;position:relative;transform:rotate(.6deg);box-shadow:0 4px 0 #0001}
+.placard:before{content:"";position:absolute;top:-9px;left:50%;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:var(--red);box-shadow:0 2px 2px #0004}
+.pstate{font:700 20px Kalam,cursive;display:flex;align-items:center;gap:8px}
+.pdot{width:12px;height:12px;border-radius:50%;background:var(--ok)}
+.trust{display:flex;align-items:baseline;gap:8px;margin:8px 0 2px}.trust b{font:600 30px "IBM Plex Mono",monospace}
+.warnline{color:var(--red);font-weight:700;font-size:14px;min-height:1.4em}
+.lower{display:grid;align-items:start;grid-template-columns:minmax(0,1fr) 360px;gap:16px;padding:16px max(2vw,14px) 28px;max-width:1500px;margin:auto}
+.slos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.slo{background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:10px 12px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.slo.hot{border-color:var(--red);box-shadow:0 0 0 2px var(--red)}
+.slo .h{display:flex;justify-content:space-between;align-items:baseline;gap:6px}.slo .h b{font:700 18px Kalam,cursive}.slo .h span{font-size:12px;color:var(--mute)}
+.slo .bn{font:600 26px "IBM Plex Mono",monospace;line-height:1.1}
+.slo canvas{width:100%;height:40px;display:block;margin:4px 0}
+.bud{display:flex;justify-content:space-between;font-size:13px;color:var(--mute)}
+.bt{height:8px;background:#edeff1;border-radius:4px;overflow:hidden;margin:3px 0 6px}.bt i{display:block;height:100%}
+.sf{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:13px;color:var(--mute)}
+.sf .btn{min-height:36px;padding:3px 10px;font-size:13px}
+.log{list-style:none;margin:0;padding:0;max-height:240px;overflow:auto;font-size:14px}
+.log li{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed var(--faint)}.log time{color:var(--mute);flex:none;font:500 12px "IBM Plex Mono",monospace;padding-top:2px}
+.log .bad{color:var(--red)}.log .good{color:var(--ok)}
+.toast{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:40;display:flex;flex-direction:column;gap:8px;pointer-events:none;align-items:center}
+.toast div{background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:15px;max-width:min(520px,92vw);box-shadow:0 8px 20px #0003;animation:tin .25s}
+@keyframes tin{from{transform:translateY(12px);opacity:0}}
+.pop{position:absolute;z-index:30;width:280px;background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:12px;box-shadow:0 12px 30px #0003}
+.pop[hidden]{display:none}.pop h4{margin:0 0 8px;font:700 18px Kalam,cursive}
+.ov{position:fixed;inset:0;z-index:60;background:#1c1f26b3;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:4vh 12px}
 .ov[hidden]{display:none}
-.modal{background:var(--panel);border-radius:16px;max-width:880px;width:100%;padding:clamp(18px,3vw,34px);border-top:6px solid var(--red)}
-.modal h1{font:800 clamp(32px,5vw,48px)/1.05 Archivo,sans-serif;margin:0 0 8px;text-wrap:balance}
-.modal p{max-width:68ch}
-.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0}
-.how div{background:var(--soft);border-radius:10px;padding:12px}.how b{display:block;font-family:Archivo,sans-serif;margin-bottom:4px}
-.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;margin-bottom:14px}
-.card{text-align:left;background:var(--soft);border:2px solid transparent;border-radius:10px;padding:10px 12px;min-height:44px}
-.card b{display:flex;justify-content:space-between;gap:8px}.card small{display:block;color:var(--mute);font-size:13px;margin-top:4px}
-.card.picked{border-color:var(--blue);background:var(--bluesoft)}.card[disabled]{opacity:.5}
-.pts{font-size:18px;margin:10px 0 16px}.pts b{font-size:32px;color:var(--blue)}
-h4{margin:14px 0 8px;font:700 15px Archivo,sans-serif}
-table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}td.n,th.n{text-align:right}
-.grade{font:800 clamp(44px,8vw,72px)/1 Archivo,sans-serif;color:var(--red)}
-@media(max-width:900px){.main,.lower{grid-template-columns:minmax(0,1fr)}.ctl{margin-left:0}}
-@media(max-width:560px){.svcs{grid-template-columns:minmax(0,1fr)}.team{grid-template-columns:repeat(2,minmax(0,1fr))}.stat.hide{display:none}}
+.modal{background:var(--board);border-radius:16px;max-width:900px;width:100%;padding:clamp(18px,3vw,34px);border:3px solid var(--ink);box-shadow:0 20px 60px #0005}
+.modal h1{font:700 clamp(36px,6vw,56px)/1 Kalam,cursive;margin:0 0 10px;text-wrap:balance}
+.modal p{max-width:66ch}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:18px 0}
+.how div{background:var(--sticky);padding:12px;box-shadow:0 3px 6px #0002}.how div:nth-child(2n){transform:rotate(1deg);background:var(--sticky2)}.how div:nth-child(2n+1){transform:rotate(-.8deg)}
+.how b{display:block;font:700 19px Kalam,cursive;margin-bottom:2px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:10px}
+.up{text-align:left;background:var(--card);border:2px solid var(--faint);border-radius:10px;padding:10px 12px;min-height:44px}
+.up b{display:flex;justify-content:space-between;gap:8px}.up small{display:block;color:var(--mute);font-size:13px;margin-top:4px}
+.up.picked{border-color:var(--blue);background:var(--bluet)}.up[disabled]{opacity:.45}
+.pts{font-size:18px;margin:8px 0 14px}.pts b{font:600 34px "IBM Plex Mono",monospace;color:var(--blue)}
+h4.g{font:700 20px Kalam,cursive;margin:14px 0 6px}
+.choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:16px}
+.choice button{text-align:left;padding:14px;border:2px solid var(--ink);border-radius:12px;background:var(--card);min-height:44px}
+.choice button b{display:block;font:700 19px Kalam,cursive}.choice button span{color:var(--mute);font-size:14px}
+.grade{font:700 clamp(56px,10vw,92px)/1 Kalam,cursive;color:var(--red)}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:12px 0}
+.charts div{background:var(--card);border:2px solid var(--ink);border-radius:10px;padding:8px 10px}.charts svg{width:100%;height:60px;display:block}
+.charts b{font:700 16px Kalam,cursive}.charts span{float:right;font:600 14px "IBM Plex Mono",monospace}
+/* map */
+.edge{fill:none;stroke:var(--ink);stroke-linecap:round;opacity:.55}
+.edge.soft{stroke-dasharray:3 7}
+.flow{fill:none;stroke:var(--blue);stroke-width:3;stroke-linecap:round;stroke-dasharray:2 14;animation:flow var(--dur,1.4s) linear infinite;opacity:.7}
+.e1 .edge{stroke:var(--amber);opacity:.9}.e1 .flow{stroke:var(--amber)}
+.e2 .edge{stroke:var(--red);opacity:1;stroke-width:4.5}.e2 .flow{stroke:var(--red);animation-direction:reverse;stroke-dasharray:4 9}
+@keyframes flow{to{stroke-dashoffset:-32}}
+.paused .flow,.paused .fire,.paused .pulse,.paused .msg{animation-play-state:paused}
+.nd{cursor:pointer}.nd.users{cursor:default}
+.body{fill:#fff;stroke:var(--ink);stroke-width:2.4;stroke-linejoin:round}
+.nd.s1 .body{fill:var(--ambt)}.nd.s2 .body{fill:var(--redt);stroke:var(--red)}
+.slot{stroke:var(--ink);stroke-width:1.6;opacity:.35}
+.led{fill:var(--ok)}.nd.s1 .led{fill:var(--amber)}.nd.s2 .led{fill:var(--red);animation:blink .6s steps(2) infinite}
+@keyframes blink{50%{opacity:.2}}
+.lbl1{font:700 17px Kalam,cursive;fill:var(--ink);text-anchor:middle}
+.lbl2{font:400 13px "Atkinson Hyperlegible",sans-serif;fill:var(--mute);text-anchor:middle}
+.badge{display:none}.badge.on{display:inline}
+.badge circle{fill:var(--red)}.badge text{font:700 15px Kalam,cursive;fill:#fff;text-anchor:middle}
+.fire{display:none;transform-box:fill-box;transform-origin:50% 100%;animation:flick .5s ease-in-out infinite alternate}.fire.on{display:inline}
+@keyframes flick{to{transform:scale(.88,1.08) rotate(3deg)}}
+.selr{fill:none;stroke:var(--blue);stroke-width:3;stroke-dasharray:8 6;display:none}.nd.sel .selr{display:inline}
+.pulse{fill:none;stroke:var(--red);stroke-width:3;display:none;transform-box:fill-box;transform-origin:center;animation:ring 1.2s ease-out infinite}.nd.pg .pulse{display:inline}
+@keyframes ring{from{transform:scale(.95);opacity:.9}to{transform:scale(1.25);opacity:0}}
+.nd.drop .body{stroke:var(--blue);stroke-width:4}
+.msg{animation:msg 2.4s linear infinite}
+@keyframes msg{from{transform:translateX(-26px);opacity:0}20%{opacity:1}80%{opacity:1}to{transform:translateX(26px);opacity:0}}
+.wk text{font:700 13px "Atkinson Hyperlegible";fill:#fff;text-anchor:middle}
+.wk .ring{fill:none;stroke:var(--ink);stroke-width:3;transform:rotate(-90deg)}
+@media(max-width:1100px){.wrap,.lower{grid-template-columns:minmax(0,1fr)}.side{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}}
+@media(max-width:760px){.board{grid-template-columns:minmax(0,1fr)}.notes{border-left:0;border-top:2px dashed var(--faint);max-height:400px}.slos{grid-template-columns:repeat(2,minmax(0,1fr))}.ctl{margin-left:0}}
+@media(max-width:420px){.slos{grid-template-columns:minmax(0,1fr)}.acts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body>
 <header class="top">
-  <div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2c2 6 9 9 9 17a9 9 0 0 1-18 0c0-5 3-7 4-11 1 3 2 4 4 5-1-4 0-8 1-11z" fill="#e5322d"/><path d="M16 15c1 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-5 1 1 1 2 2 2 0-2-1-3 0-5z" fill="#ffb199"/></svg>Burn Rate</div>
-  <div><div class="clock mono" id="clock">08:00</div><div class="tday" id="tday">Day 1 of 5</div></div>
-  <div class="stat"><span>Features shipped</span><b class="mono" id="feat">0 / 40</b></div>
-  <div class="stat"><span>Toil today</span><b class="mono" id="toil">0.0</b></div>
-  <div class="stat hide"><span>Pages</span><b class="mono" id="pages">0</b></div>
-  <div class="ctl" role="group" aria-label="Game speed">
-    <button id="bpause" data-act="pause" aria-label="Pause">❚❚</button>
+  <div class="logo"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3c2 6 9 9 9 17a9 9 0 0 1-18 0c0-5 3-7 4-11 1 3 2 4 4 5-1-4 0-8 1-11z" fill="#d8342a"/><path d="M16 16c1 3 4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 2-5 1 1 1 2 2 2 0-2-1-3 0-5z" fill="#ffb199"/></svg>Burn Rate</div>
+  <div><div class="clk mono" id="clock">08:00</div><div class="sub" id="day">Day 1 of 5</div></div>
+  <div class="st">Features shipped<b id="feat">0 / 55</b></div>
+  <div class="st">Customer trust<b id="trustTop">100</b><span class="tm"><i id="trustBar" style="width:100%"></i></span></div>
+  <div class="st">Toil today<b id="toil">0.0</b></div>
+  <div class="ctl" role="group" aria-label="Game controls">
+    <button id="bpause" data-act="pause">Pause</button>
     <button data-act="speed" data-v="1" aria-pressed="true">1×</button>
     <button data-act="speed" data-v="2" aria-pressed="false">2×</button>
     <button data-act="speed" data-v="4" aria-pressed="false">4×</button>
     <button data-act="mute" id="bmute" aria-pressed="false">Sound on</button>
   </div>
 </header>
-<main class="main">
-  <section class="svcs" id="svcs" aria-label="Services"></section>
-  <section class="side">
-    <div class="p"><h2>Pager</h2><div class="queue" id="queue"></div></div>
-    <div class="p det" id="det"></div>
+<main class="wrap">
+  <section class="frame" aria-label="Incident whiteboard">
+    <div class="board">
+      <div class="map" id="map"><svg id="svg" role="img" aria-label="Service dependency map"></svg><div class="pop" id="pop" hidden></div></div>
+      <div class="notes" id="notes" aria-label="Pager"></div>
+      <div class="tray" id="tray"></div>
+    </div>
   </section>
+  <aside class="side">
+    <section class="card" id="det" aria-live="polite"></section>
+    <section class="placard" id="status"></section>
+  </aside>
 </main>
 <section class="lower">
-  <div class="p"><h2>On-call team</h2><div class="team" id="team"></div></div>
-  <div class="p"><h2>Incident log</h2><ul class="log" id="log"></ul></div>
+  <div class="slos" id="slos" aria-label="Service level objectives"></div>
+  <div class="card"><h2>Log</h2><ul class="log" id="log"></ul></div>
 </section>
 <div class="toast" id="toast" aria-live="polite"></div>
 <div class="ov" id="ov"><div class="modal" id="modal"></div></div>
 <script>
 {
 const $=s=>document.querySelector(s);
-const rnd=(a,b)=>a+Math.random()*(b-a);
-const pick=a=>a[Math.floor(Math.random()*a.length)];
+const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.floor(Math.random()*a.length)];
 const DAYS=5,DAYMIN=1440,TARGET=55,SCALE=12;
 const CAUSES={
-  deploy:{n:'Bad deploy',fix:'rollback',clue:'Error spike began minutes after the last release went out.',sym:'5xx spike after release'},
-  leak:{n:'Memory leak',fix:'restart',clue:'Memory climbing steadily; pods are being OOMKilled.',sym:'Pods OOMKilled'},
-  spike:{n:'Traffic surge',fix:'scale',clue:'Requests at 3× baseline, CPU pegged on every replica.',sym:'CPU saturation'},
-  dep:{n:'Dependency outage',fix:'failover',clue:'Upstream database timing out in one region only.',sym:'Upstream timeouts'},
-  cert:{n:'Expired certificate',fix:'renew',clue:'Clients failing TLS handshakes; cert expired at midnight UTC.',sym:'TLS handshake failures'},
-  disk:{n:'Disk full',fix:'expand',clue:'Writes failing; data volume at 100%.',sym:'Disk usage 98%'}};
+ deploy:{n:'Bad deploy',fix:'rollback',clue:'Errors started minutes after the last release.',sym:'5xx spike after release'},
+ leak:{n:'Resource leak',fix:'restart',clue:'Memory and connections climb until processes get killed.',sym:'Processes OOMKilled'},
+ spike:{n:'Traffic surge',fix:'scale',clue:'Requests at 3× baseline, CPU saturated.',sym:'CPU saturation'},
+ node:{n:'Primary node failure',fix:'failover',clue:'Primary node unresponsive; replicas look healthy.',sym:'Primary unreachable'},
+ cert:{n:'Expired certificate',fix:'renew',clue:'Clients failing TLS handshakes; the certificate expired.',sym:'TLS handshake failures'},
+ disk:{n:'Disk full',fix:'expand',clue:'Writes failing; the volume is at 100%.',sym:'Disk usage 98%'}};
 const CK=Object.keys(CAUSES);
-const ACTIONS={rollback:{n:'Roll back',t:15},restart:{n:'Restart pods',t:10},scale:{n:'Scale out',t:15},failover:{n:'Fail over region',t:25},renew:{n:'Renew cert',t:20},expand:{n:'Expand volume',t:15}};
-const HAZ={leak:.011,spike:.011,dep:.007,cert:.002,disk:.007};
-const SEV={deploy:[.1,.3],leak:[.06,.16],spike:[.08,.22],dep:[.14,.32],cert:[.25,.4],disk:[.14,.32]};
-const NOISE=['CPU > 80% on node-#','Disk IO wait high on db-#','Heap at 75% on worker-#','Packet retransmits on lb-#','Cron job slow: cleanup-#','Synthetic check flapped 1/5','Thread pool 70% on api-#'];
-const SVC=[{id:'auth',name:'Auth Gateway',slo:99.5,haz:.4},{id:'ledger',name:'Ledger API',slo:99.0,haz:1},{id:'analytics',name:'Analytics Engine',slo:99.0,haz:1},{id:'reports',name:'Report Renderer',slo:98.5,haz:1.25}];
-const ENG=[{n:'Sam',c:'#e5322d'},{n:'Marcus',c:'#2f5cff'},{n:'Chen',c:'#18804a'},{n:'Dana',c:'#a86400'}];
+const ACTIONS={rollback:{n:'Roll back',t:15},restart:{n:'Restart',t:10},scale:{n:'Scale out',t:15},failover:{n:'Fail over',t:20},renew:{n:'Renew cert',t:20},expand:{n:'Expand volume',t:15}};
+const SEV={deploy:[.1,.3],leak:[.06,.16],spike:[.08,.22],node:[.25,.5],cert:[.2,.35],disk:[.12,.28]};
+const NODES=[
+ {id:'users',name:'Customers',type:'users'},
+ {id:'edge',name:'Edge Gateway',type:'edge',causes:['cert','spike','deploy'],haz:.6},
+ {id:'auth',name:'Auth Gateway',type:'svc',slo:99.3,causes:['deploy','leak','spike'],haz:.45},
+ {id:'ledger',name:'Ledger API',type:'svc',slo:99.0,causes:['deploy','leak','spike'],haz:.9},
+ {id:'reports',name:'Report Renderer',type:'svc',slo:98.5,causes:['deploy','leak','disk'],haz:1},
+ {id:'analytics',name:'Analytics Engine',type:'svc',slo:99.0,causes:['deploy','leak','spike'],haz:.9},
+ {id:'db',name:'Primary DB',type:'db',causes:['disk','node','leak'],haz:.55},
+ {id:'queue',name:'Message Queue',type:'queue',causes:['disk','node','leak'],haz:.55},
+ {id:'store',name:'Object Store',type:'store',causes:['node','disk'],haz:.45}];
+const DEPS=[
+ {from:'users',to:'edge',route:1},{from:'edge',to:'auth',route:1},{from:'edge',to:'ledger',route:1},{from:'edge',to:'reports',route:1},{from:'edge',to:'analytics',route:1},
+ {from:'auth',to:'db',c:.8},{from:'ledger',to:'db',c:.8},{from:'ledger',to:'queue',c:.3},{from:'reports',to:'queue',c:.6},{from:'reports',to:'store',c:.7},{from:'analytics',to:'db',c:.5},{from:'analytics',to:'store',c:.6}];
+const POS={h:{vb:[940,585],users:[70,280],edge:[225,280],auth:[485,72],ledger:[485,212],reports:[485,352],analytics:[485,492],db:[800,130],queue:[800,280],store:[800,430]},
+           v:{vb:[420,830],users:[210,46],edge:[210,176],auth:[110,340],ledger:[310,340],reports:[110,500],analytics:[310,500],db:[70,700],queue:[210,700],store:[350,700]}};
+const SLOS=NODES.filter(n=>n.slo).map(n=>n.id);
+const SLOTS=id=>id==='auth'?[780]:[600,780,960];
+const NOISE=['CPU above 80% on node-#','IO wait high on host-#','Heap at 75% on worker-#','Packet retransmits on lb-#','Cron job slow: cleanup-#','Synthetic check flapped 1 of 5','Thread pool at 70% on pod-#'];
+const ENG=[{n:'Sam',c:'#d8342a'},{n:'Marcus',c:'#2456c9'},{n:'Chen',c:'#1f8a55'},{n:'Dana',c:'#c47a00'}];
 const UP=[
- {id:'burn',g:'Alerting & release',n:'Burn-rate alerting',c:3,d:'Page on SLO burn, not CPU. Noise pages −75%, real incidents detected in ~5 min.'},
- {id:'canary',g:'Alerting & release',n:'Canary releases',c:3,d:'Bad-deploy odds 20% → 7%, and a bad canary hurts half as much.'},
- {id:'auto_leak',g:'Automation',n:'Auto-restart on OOM',c:2,d:'Memory leaks are restarted by automation within 8 min.'},
- {id:'auto_spike',g:'Automation',n:'Horizontal autoscaling',c:2,d:'Traffic surges scale out on their own within 6 min.'},
+ {id:'correlate',g:'Alerting',n:'Alert correlation',c:2,d:'Pages caused by the same failing dependency collapse into one sticky note.'},
+ {id:'burn',g:'Alerting',n:'Burn-rate alerting',c:3,d:'Page on customer impact, not CPU. Noise −75%, SLO burn detected in ~2 min.'},
+ {id:'tracing',g:'Alerting',n:'Distributed tracing',c:2,d:'Investigations take 10 min instead of 20 and always show which dependency is failing.'},
+ {id:'breakers',g:'Resilience',n:'Circuit breakers',c:3,d:'Services degrade gracefully: a failing dependency hurts its callers about half as much.'},
+ {id:'canary',g:'Resilience',n:'Canary releases',c:3,d:'Bad-release odds drop from 20% to 7%, and a bad canary hurts half as much.'},
+ {id:'auto_leak',g:'Automation',n:'Auto-restart on OOM',c:2,d:'Resource leaks get restarted by automation within 8 min.'},
+ {id:'auto_spike',g:'Automation',n:'Autoscaling',c:2,d:'Traffic surges scale out on their own within 6 min.'},
+ {id:'auto_node',g:'Automation',n:'Automated failover',c:3,d:'DB, queue and storage primaries fail over by themselves within 6 min.'},
  {id:'auto_disk',g:'Automation',n:'Volume auto-grow',c:1,d:'Full disks expand themselves within 8 min.'},
- {id:'auto_cert',g:'Automation',n:'Cert automation',c:1,d:'Certificates renew themselves. Expiry incidents stop happening.'},
- {id:'auto_dep',g:'Automation',n:'Automated regional failover',c:3,d:'Dependency outages fail over within 10 min.'},
- ...CK.map(k=>({id:'rb_'+k,g:'Runbooks',n:'Runbook: '+CAUSES[k].n,c:1,d:'Investigations take half the time and are right 95% of the time.'})),
- {id:'rest',g:'Team',n:'Comp time',c:1,rep:true,d:'Everyone recovers 25 extra fatigue before the next shift.'}];
+ {id:'auto_cert',g:'Automation',n:'Cert automation',c:1,d:'Certificates renew themselves. No more expiry incidents.'},
+ {id:'comms',g:'People',n:'Comms lead rotation',c:2,d:'A comms lead posts status-page updates during major incidents for you.'},
+ ...CK.map(k=>({id:'rb_'+k,g:'Runbooks',n:'Runbook: '+CAUSES[k].n.toLowerCase(),c:1,d:'Investigations name this cause correctly 95% of the time.'})),
+ {id:'rest',g:'People',n:'Comp time',c:1,rep:1,d:'Everyone recovers 25 extra fatigue before the next shift.'}];
 const tf=h=>(0.4+1.1*Math.exp(-(((h-14)/4.5)**2)))/0.766;
 const hhmm=t=>{const m=Math.floor(t)%DAYMIN;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')};
-let G,AC=null,muted=false;
+let G,AC=null,muted=false,layout=null;
+const N=id=>G.nodes[id];
+const hour=()=>(G.t/60)%24,night=()=>{const h=hour();return h<7||h>=23};
+const burnOf=n=>n.user/((100-n.slo)/100);
+const depsOf=id=>DEPS.filter(d=>d.from===id&&!d.route);
+const callersOf=id=>DEPS.filter(d=>d.to===id&&!d.route).map(d=>d.from);
+const cpl=d=>d.c*(G.up.breakers?.45:1);
+const live=id=>G.faults.filter(f=>f.node===id&&!f.fixed);
+const pct=v=>(v*100).toFixed(v<.1?1:0)+'%';
 function newGame(){
-  G={t:8*60,day:1,speed:1,paused:true,running:false,nid:1,incs:[],sel:null,pickEng:null,
-    svcs:SVC.map((s,i)=>({...s,i,budget:(100-s.slo)/100*DAYS*DAYMIN,bad:0,err:0,hist:[],frozen:false,exhausted:false,ver:0})),
-    team:ENG.map((e,i)=>({id:i,name:e.n,c:e.c,fat:8+i*5,busy:null,out:false})),
-    primary:0,up:{},pm:{},features:0,toil:0,pages:0,noisePages:0,burnouts:0,log:[],today:[],
-    st:{real:0,resolved:0,ttr:[],auto:0,exhaustedShips:0,dismissedReal:0},sched:[{at:8*60+14,svc:'ledger',cause:'leak'}],dd:{},lastSample:0,first:true,dayStats:{pages:0,incidents:0}};
-  G.svcs.forEach(s=>{for(let k=0;k<48;k++)s.hist.push(.0005)});
+  G={t:480,day:1,speed:1,paused:true,running:false,nid:1,faults:[],alerts:[],sel:null,pickEng:null,nodes:{},
+    team:ENG.map((e,i)=>({id:i,name:e.n,c:e.c,fat:8+i*5,busy:null,out:false})),primary:0,up:{},pm:{},
+    features:0,toil:0,pages:0,noisePages:0,burnouts:0,log:[],today:[],hints:{},trust:100,status:'ok',lastPost:-999,majorMin:0,calm:0,incident:false,
+    st:{faults:0,fixed:0,ttr:[],auto:0,exShips:0,majors:0,silencedReal:0},sched:[{at:495,node:'ledger',cause:'leak'},{at:665,node:'db',cause:'disk',sev:.3}],
+    dd:{},lastSample:0,series:[],evDone:{},evAt:0,dayStats:{pages:0,faults:0},debt:1,prescale:0};
+  let i=0;for(const n of NODES)G.nodes[n.id]={...n,own:0,eff:0,user:0,task:null,intel:null,tried:[],hot:0,cool:0,frozen:false,ver:0,bad:0,budget:n.slo?(100-n.slo)/100*DAYS*DAYMIN:0,exhausted:false,hist:Array(48).fill(0),i:n.slo?i++:-1};
+  G.evAt=rnd(630,900);
 }
-const svc=id=>G.svcs.find(s=>s.id===id);
-const hour=()=>(G.t/60)%24;
-const night=()=>{const h=hour();return h<7||h>=23};
-const burnOf=s=>s.err/((100-s.slo)/100);
-function log(msg,cls=''){G.log.unshift({t:G.t,d:G.day,msg,cls});if(G.log.length>80)G.log.pop()}
-function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').prepend(d);setTimeout(()=>d.remove(),4200);while($('#toast').children.length>3)$('#toast').lastChild.remove()}
-function beep(){if(muted)return;try{AC=AC||new AudioContext();const n=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='square';o.frequency.setValueAtTime(880,n);o.frequency.setValueAtTime(660,n+.11);o.frequency.setValueAtTime(880,n+.22);g.gain.setValueAtTime(.04,n);g.gain.exponentialRampToValueAtTime(.0001,n+.36);o.connect(g).connect(AC.destination);o.start(n);o.stop(n+.37)}catch(e){}}
+function log(msg,cls=''){G.log.unshift({t:G.t,d:G.day,msg,cls});if(G.log.length>90)G.log.pop()}
+function toast(msg){const d=document.createElement('div');d.textContent=msg;$('#toast').prepend(d);setTimeout(()=>d.remove(),4500);while($('#toast').children.length>2)$('#toast').lastChild.remove()}
+function hint(k,msg){if(G.hints[k])return;G.hints[k]=1;setTimeout(()=>toast(msg),700)}
+function beep(){if(muted)return;try{AC=AC||new AudioContext();const n=AC.currentTime,o=AC.createOscillator(),g=AC.createGain();o.type='square';[880,660,880].forEach((f,i)=>o.frequency.setValueAtTime(f,n+i*.11));g.gain.setValueAtTime(.035,n);g.gain.exponentialRampToValueAtTime(.0001,n+.36);o.connect(g).connect(AC.destination);o.start(n);o.stop(n+.37)}catch(e){}}
 function oncall(){for(let k=0;k<4;k++){const e=G.team[(G.primary+k)%4];if(!e.out)return e}return null}
-function pageHit(){const e=oncall();if(e)e.fat+=night()?6:2;G.pages++;G.dayStats.pages++}
-function spawn(s,cause,o={}){
-  if(cause==='cert'&&G.up.auto_cert)return;
-  const r=SEV[cause],inc={id:G.nid++,svc:s.id,cause,sev:o.sev??rnd(r[0],r[1]),err:0,t0:G.t,state:'hidden',task:null,diag:null,tried:[],noise:false};
-  inc.detectAt=G.t+(G.up.burn?rnd(3,6):rnd(6,15)+(cause==='leak'?12:0));
-  const am={leak:['auto_leak',8],spike:['auto_spike',6],disk:['auto_disk',8],dep:['auto_dep',10]}[cause];
-  if(am&&G.up[am[0]])inc.autoAt=G.t+am[1];
-  if(!G.up.burn){const c=Math.random()<.3?pick(CK.filter(k=>k!==cause)):cause;inc.title=CAUSES[c].sym+' — '+s.name}
-  G.incs.push(inc);G.st.real++;G.dayStats.incidents++;
+function pageHit(w=1){const e=oncall();if(e)e.fat+=(night()?6:2)*w;G.pages++;G.dayStats.pages++}
+/* ---------- simulation ---------- */
+function spawn(n,cause,o={}){
+  if(cause==='cert'&&G.up.auto_cert)return null;
+  const r=SEV[cause],f={id:G.nid++,node:n.id,cause,sev:o.sev??rnd(r[0],r[1]),own:0,t0:G.t,fixed:false,alerted:false};
+  const internal=!n.slo&&n.type!=='edge';
+  f.detectAt=G.t+(internal?rnd(10,22):rnd(6,15)+(cause==='leak'?10:0));
+  const am={leak:['auto_leak',8],spike:['auto_spike',6],disk:['auto_disk',8],node:['auto_node',6]}[cause];
+  if(am&&G.up[am[0]])f.autoAt=G.t+am[1];
+  G.faults.push(f);G.st.faults++;G.dayStats.faults++;return f;
 }
-function spawnNoise(){const s=pick(G.svcs);G.incs.push({id:G.nid++,svc:s.id,cause:'noise',noise:true,sev:0,err:0,t0:G.t,state:'hidden',task:null,diag:null,tried:[],title:pick(NOISE).replace('#',Math.floor(rnd(10,99)))+' — '+s.name,expireAt:G.t+rnd(35,55)})}
-function page(inc){
-  const s=svc(inc.svc);
-  if(!inc.noise&&G.up.burn&&!inc.title)inc.title=s.name+': budget burning '+Math.max(2,burnOf(s)).toFixed(0)+'× (fast burn)';
-  inc.state='open';inc.lastPage=G.t;inc.openedAt??=G.t;pageHit();if(inc.noise)G.noisePages++;
-  beep();toast('PAGE: '+inc.title);log('Paged: '+inc.title,'bad');
-  if(G.first){G.first=false;setTimeout(()=>toast('Select the page, pick an engineer, then investigate or remediate.'),600)}
-  if(!G.sel||!G.incs.find(i=>i.id===G.sel&&i.state!=='resolved'))G.sel=inc.id;
+function rootOf(id){let best=null;const visit=(x,d)=>{for(const e of depsOf(x)){const t=N(e.to);if(t.own>.04&&(!best||d+1>best.d))best={id:t.id,d:d+1};visit(t.id,d+1)}};visit(id,0);return best?best.id:id}
+function raise(kind,n,title,o={}){
+  const a={id:G.nid++,node:n.id,kind,title,t:G.t,lastPage:G.t,acked:false,cleared:false,fault:o.fault??null,expire:o.expire,fresh:true};
+  a.key=G.up.correlate?(o.key??n.id):'a'+a.id;
+  const grouped=G.alerts.some(x=>!x.cleared&&x.key===a.key);
+  G.alerts.push(a);
+  if(grouped){log('Correlated into an open page: '+title);return a}
+  pageHit();if(kind==='noise')G.noisePages++;
+  beep();toast('Paged: '+title);log('Paged: '+title,'bad');
+  if(!G.sel||!G.alerts.some(x=>!x.cleared&&x.node===G.sel&&x.id!==a.id))G.sel=n.id;
+  hint('first','Drag an engineer magnet from the tray onto the box that is failing.');
+  return a;
 }
-function resolve(inc,msg,cls='good'){
-  if(inc.task){G.team[inc.task.eng].busy=null;inc.task=null}
-  inc.state='resolved';inc.resolvedAt=G.t;inc.msg=msg;log(msg,cls);
-  if(!inc.noise){G.st.resolved++;G.st.ttr.push(G.t-inc.t0);G.today.push({svc:inc.svc,cause:inc.cause})}
-}
-function startTask(inc,eid,kind){
-  const e=G.team[eid];if(!e||e.out||e.busy!=null||inc.task)return;
-  let dur=kind==='inv'?(inc.noise?15:(G.up['rb_'+inc.cause]?10:20)):ACTIONS[kind].t;
-  if(e.fat>70)dur*=1.4;
-  inc.task={eng:eid,kind,start:G.t,end:G.t+dur};inc.state='working';e.busy=inc.id;G.pickEng=eid;
-  if(kind!=='inv')G.toil+=.35;
-  log(e.name+(kind==='inv'?' is investigating ':' started “'+ACTIONS[kind].n+'” on ')+'#'+inc.id);
-}
-function complete(inc){
-  const t=inc.task,e=G.team[t.eng];e.busy=null;inc.task=null;inc.state='open';inc.lastPage=G.t;
-  const s=svc(inc.svc);
-  if(t.kind==='inv'){
-    if(inc.noise){G.toil+=.2;return resolve(inc,'#'+inc.id+' was a false positive — no customer impact. Closed by '+e.name+'.','')}
-    const rb=G.up['rb_'+inc.cause],acc=(rb?.95:.65)-(e.fat>70?.2:0);
-    const dc=Math.random()<acc?inc.cause:pick(CK.filter(k=>k!==inc.cause));
-    inc.diag={cause:dc,conf:rb?'high':(e.fat>70?'low':'medium'),by:e.name};
-    log(e.name+' on #'+inc.id+': '+CAUSES[dc].clue);return;
-  }
-  const a=ACTIONS[t.kind];
-  if(inc.noise){G.toil+=.2;inc.tried.push(t.kind);log(a.n+' on #'+inc.id+' changed nothing — nothing was broken.');return}
-  if(CAUSES[inc.cause].fix===t.kind){
-    resolve(inc,e.name+' resolved #'+inc.id+' ('+CAUSES[inc.cause].n+', '+s.name+') with “'+a.n+'”.');
-    if(inc.cause==='deploy'){G.features=Math.max(0,G.features-1)}
-    if(inc.cause==='leak'&&!G.pm[s.id+':leak']&&Math.random()<.5)G.sched.push({at:G.t+rnd(240,480),svc:s.id,cause:'leak'});
-  }else{inc.tried.push(t.kind);log('“'+a.n+'” on #'+inc.id+' — no improvement. Still burning.','bad')}
-}
-function deploy(s){
-  if(s.frozen){log(s.name+' release skipped (change freeze).');return}
-  s.ver++;G.features++;if(s.exhausted)G.st.exhaustedShips++;
-  let p=G.up.canary?.07:.2;if(G.pm[s.id+':deploy'])p*=.4;
+function clearAlert(a){a.cleared=true;a.clearedAt=G.t}
+function deploy(s,o={}){
+  if(s.frozen&&!o.force){log(s.name+' release skipped (change freeze).');return}
+  s.ver++;G.features+=o.extra??1;if(s.exhausted)G.st.exShips++;
+  let p=o.p??(G.up.canary?.07:.2);if(G.pm[s.id+':deploy'])p*=.4;
   log(s.name+' shipped v'+G.day+'.'+s.ver+'.');
-  if(Math.random()<p)spawn(s,'deploy',G.up.canary?{sev:rnd(.08,.2)}:{});
+  if(Math.random()<p)spawn(s,'deploy',G.up.canary?{sev:rnd(.07,.18)}:{});
+}
+function fix(f,by){
+  f.fixed=true;f.fixedAt=G.t;const n=N(f.node);
+  G.alerts.filter(a=>a.fault===f.id&&!a.cleared).forEach(clearAlert);
+  G.st.fixed++;G.st.ttr.push(G.t-f.t0);G.today.push({node:n.id,cause:f.cause});
+  if(by==='auto'){G.st.auto++;log('Automation fixed '+CAUSES[f.cause].n.toLowerCase()+' on '+n.name+(f.alerted?'.':' before anyone was paged.'),'good')}
+  else log(by+' fixed '+CAUSES[f.cause].n.toLowerCase()+' on '+n.name+'.','good');
+  if(f.cause==='deploy'&&n.slo)G.features=Math.max(0,G.features-1);
+  if(f.cause==='leak'&&by!=='auto'&&!G.pm[n.id+':leak']&&Math.random()<.5)G.sched.push({at:G.t+rnd(240,480),node:n.id,cause:'leak'});
+  n.tried=[];n.intel=null;
+}
+function startTask(n,eid,kind){
+  const e=G.team[eid];if(!n||!n.causes||!e||e.out||e.busy!=null||n.task)return false;
+  let dur=kind==='inv'?(G.up.tracing?10:20):ACTIONS[kind].t;if(e.fat>70)dur*=1.4;
+  n.task={eng:eid,kind,start:G.t,end:G.t+dur};e.busy=n.id;G.pickEng=eid;
+  if(kind!=='inv')G.toil+=.35;
+  log(e.name+(kind==='inv'?' is investigating ':' is running “'+ACTIONS[kind].n+'” on ')+n.name+'.');
+  return true;
+}
+function complete(n){
+  const t=n.task,e=G.team[t.eng];e.busy=null;n.task=null;
+  if(t.kind==='inv'){
+    const act=live(n.id).sort((a,b)=>b.own-a.own),top=act[0];
+    const rb=top&&G.up['rb_'+top.cause],acc=(rb?.95:.75)-(e.fat>70?.2:0);
+    let cause=null;
+    if(top)cause=Math.random()<acc?top.cause:(pick(n.causes.filter(c=>c!==top.cause))||top.cause);
+    else if(Math.random()>acc+.25)cause=pick(n.causes);
+    const thr=G.up.tracing?.02:.12;
+    const up=depsOf(n.id).filter(d=>N(d.to).eff>thr).map(d=>({id:d.to,err:N(d.to).eff})).sort((a,b)=>b.err-a.err);
+    n.intel={by:e.name,at:G.t,cause,conf:rb?'high':e.fat>70?'low':'medium',up};
+    const noise=G.alerts.filter(a=>!a.cleared&&a.node===n.id&&a.kind==='noise');
+    if(noise.length){noise.forEach(clearAlert);G.toil+=.2;log(e.name+' confirmed the '+n.name+' alert was noise.')}
+    log(e.name+' on '+n.name+': '+(cause?CAUSES[cause].clue:'no local fault found.')+(up.length?' Calls to '+up.map(u=>N(u.id).name).join(', ')+' are failing.':''));
+    if(!cause&&up.length)hint('up','No local fault, but a dependency is failing. Follow the red marker to it.');
+    return;
+  }
+  const m=live(n.id).filter(f=>CAUSES[f.cause].fix===t.kind);
+  if(m.length)m.forEach(f=>fix(f,e.name));
+  else{n.tried.push(t.kind);log('“'+ACTIONS[t.kind].n+'” on '+n.name+' changed nothing.','bad')}
 }
 function step(dt){
   G.t+=dt;const h=hour(),traf=tf(h),ramp=1+.12*(G.day-1),base=(G.day-1)*DAYMIN;
-  const due=G.sched.filter(e=>e.at<=G.t);G.sched=G.sched.filter(e=>e.at>G.t);due.forEach(e=>spawn(svc(e.svc),e.cause));
-  for(const s of G.svcs)[600,780,960].forEach((m,k)=>{const at=base+DAYMIN+m+s.i*20-DAYMIN,key=G.day+s.id+k;if(G.t>=at&&!G.dd[key]){G.dd[key]=1;deploy(s)}});
-  for(const s of G.svcs)for(const c in HAZ){let r=HAZ[c]*s.haz*ramp*(c==='spike'?traf:1);if(G.pm[s.id+':'+c])r*=.3;if(Math.random()<r*dt/60)spawn(s,c)}
-  if(Math.random()<(G.up.burn?.05:.2)*ramp*dt/60)spawnNoise();
-  for(const inc of G.incs){
-    if(inc.task&&G.t>=inc.task.end)complete(inc);
-    if(inc.noise){
-      if(inc.state==='hidden')page(inc);
-      else if(inc.state==='open'&&G.t-inc.lastPage>=15){pageHit();G.noisePages++;inc.lastPage=G.t}
-      if(inc.state!=='resolved'&&!inc.task&&G.t>=inc.expireAt)resolve(inc,'#'+inc.id+' cleared on its own (flapping alert).','');
-      continue;
-    }
-    if(inc.state!=='resolved'){const tau={leak:40,cert:2}[inc.cause]||6,tg=inc.sev*(inc.cause==='spike'?traf/1.2:1);inc.err+=(tg-inc.err)*Math.min(1,dt/tau)}
-    else inc.err*=Math.exp(-dt/4);
-    if(inc.autoAt&&G.t>=inc.autoAt&&inc.state!=='resolved'){const pre=inc.state==='hidden';G.st.auto++;resolve(inc,'Automation fixed #'+inc.id+' ('+CAUSES[inc.cause].n+', '+svc(inc.svc).name+')'+(pre?' before anyone was paged.':'.'));continue}
-    if(inc.state==='hidden'&&G.t>=inc.detectAt)page(inc);
-    else if(inc.state==='dismissed'&&G.t>=inc.repageAt){inc.title='RE-PAGE: '+inc.title.replace(/^RE-PAGE: /,'');page(inc)}
-    else if(inc.state==='open'&&G.t-inc.lastPage>=30){const oc=oncall();if(oc)oc.fat+=1.5;G.pages++;inc.lastPage=G.t;log('#'+inc.id+' still unacknowledged — escalating.','bad');beep()}
+  const due=G.sched.filter(e=>e.at<=G.t);G.sched=G.sched.filter(e=>e.at>G.t);due.forEach(e=>spawn(N(e.node),e.cause,e.sev?{sev:e.sev}:{}));
+  for(const id of SLOS){const s=N(id);SLOTS(id).forEach((m,k)=>{const at=base+m+s.i*20,key=G.day+id+k;if(G.t>=at&&!G.dd[key]){G.dd[key]=1;deploy(s)}})}
+  for(const n of Object.values(G.nodes)){if(!n.causes)continue;for(const c of n.causes){if(c==='deploy')continue;let r=.0075*n.haz*ramp*(c==='spike'?traf:1);if(c==='cert')r*=G.debt;if(c==='spike'&&G.prescale===G.day&&h>=12&&h<18)r=0;if(G.pm[n.id+':'+c])r*=.3;if(Math.random()<r*dt/60)spawn(n,c)}}
+  if(Math.random()<(G.up.burn?.05:.2)*ramp*dt/60){const n=N(pick(NODES.slice(1)).id);raise('noise',n,pick(NOISE).replace('#',Math.floor(rnd(10,99)))+' on '+n.name,{expire:G.t+rnd(35,55)})}
+  if(!G.evDone[G.day]&&G.t>=base+G.evAt){G.evDone[G.day]=1;event();if(G.paused)return}
+  for(const f of G.faults){
+    if(!f.fixed){const tau={leak:40,cert:2,node:3}[f.cause]||6,tg=f.sev*(f.cause==='spike'?traf/1.2:1);f.own+=(tg-f.own)*Math.min(1,dt/tau)}else f.own*=Math.exp(-dt/4);
+    if(!f.fixed&&f.autoAt&&G.t>=f.autoAt){fix(f,'auto');continue}
+    if(!f.fixed&&!f.alerted&&G.t>=f.detectAt){f.alerted=true;const n=N(f.node),c=(!G.up.burn&&Math.random()<.25)?pick(CK.filter(k=>k!==f.cause)):f.cause;raise('cause',n,CAUSES[c].sym+' on '+n.name,{fault:f.id})}
   }
-  for(const s of G.svcs){
-    s.err=Math.min(1,.0004+Math.random()*.0003+G.incs.filter(i=>i.svc===s.id).reduce((a,i)=>a+i.err,0));
-    s.bad+=s.err*traf*dt;
-    if(!s.exhausted&&s.bad>=s.budget){s.exhausted=true;log(s.name+' has exhausted its error budget. Policy says: freeze releases.','bad');toast(s.name+': error budget exhausted')}
+  for(const n of Object.values(G.nodes)){if(n.type==='users')continue;n.own=1-live(n.id).concat(G.faults.filter(f=>f.node===n.id&&f.fixed)).reduce((a,f)=>a*(1-f.own),1);if(n.slo)n.own=1-(1-n.own)*(1-.0004-Math.random()*.0003)}
+  for(const id of ['db','queue','store','edge'])N(id).eff=N(id).own;
+  const edge=N('edge');
+  for(const id of SLOS){
+    const s=N(id);s.eff=1-(1-s.own)*depsOf(id).reduce((a,d)=>a*(1-N(d.to).eff*cpl(d)),1);
+    s.user=1-(1-edge.own)*(1-s.eff);s.bad+=s.user*traf*dt;
+    if(!s.exhausted&&s.bad>=s.budget){s.exhausted=true;log(s.name+' is out of error budget. Policy says: freeze its releases.','bad');toast(s.name+' is out of error budget')}
+    const b=burnOf(s),thr=G.up.burn?6:10,need=G.up.burn?2:6,fire=G.alerts.find(a=>!a.cleared&&a.kind==='burn'&&a.node===id);
+    if(b>=thr){s.hot+=dt;s.cool=0}else{s.hot=0;if(b<2)s.cool+=dt}
+    if(s.hot>=need&&!fire){const r=rootOf(id);raise('burn',s,s.name+': customers seeing errors, '+b.toFixed(0)+'× burn'+(G.up.correlate&&r!==id?' (likely '+N(r).name+')':''),{key:r})}
+    if(fire&&s.cool>=8)clearAlert(fire);
   }
+  const keys={};
+  for(const a of G.alerts){if(a.cleared)continue;if(a.kind==='noise'&&G.t>=a.expire){clearAlert(a);continue}(keys[a.key]=keys[a.key]||[]).push(a)}
+  for(const k in keys){const g=keys[k];if(g.every(a=>a.acked))continue;const lp=Math.max(...g.map(a=>a.lastPage));if(G.t-lp>=30){g.forEach(a=>a.lastPage=G.t);pageHit(.5);log('Unacknowledged page re-sent: '+g[0].title,'bad');beep()}}
+  const major=SLOS.some(id=>burnOf(N(id))>=14.4);
+  G.majorMin=major?G.majorMin+dt:0;
+  if(G.majorMin>=3&&!G.incident){G.incident=true;G.calm=0;G.st.majors++;log('Major incident declared: customers are seeing heavy errors.','bad');hint('status','Major incident. Customers are watching the status page, so post an update.')}
+  if(G.incident){
+    if(G.up.comms&&(G.status==='ok'||G.t-G.lastPost>=25))post(G.status==='ok'?'investigating':'identified',true);
+    const stale=G.status==='ok'||G.t-G.lastPost>30;
+    G.trust-=(stale?.12:.025)*dt;
+    if(!major){G.calm+=dt;if(G.calm>=40&&G.status==='ok'){G.incident=false}}else G.calm=0;
+  }else G.trust+=.006*dt;
+  G.trust=Math.max(0,Math.min(100,G.trust));
   for(const e of G.team){
-    if(e.out)continue;
-    if(e.busy!=null)e.fat+=(night()?.7:.32)*dt;else e.fat=Math.max(0,e.fat-.06*dt);
-    if(e.fat>=100){e.fat=100;e.out=true;G.burnouts++;const inc=G.incs.find(i=>i.id===e.busy);if(inc){inc.task=null;inc.state='open'}e.busy=null;log(e.name+' has burned out and is offline for the rest of the shift.','bad');toast(e.name+' burned out')}
+    if(e.out){if(G.t>=e.backAt){e.out=false;e.fat=55;log(e.name+' is back after some rest.','good')}continue}
+    if(e.busy==='ext'&&G.t>=e.extEnd)e.busy=null;
+    if(e.busy!=null)e.fat+=(night()?.42:.2)*dt;else e.fat=Math.max(0,e.fat-.08*dt);
+    if(e.fat>=100){e.fat=100;e.out=true;e.backAt=G.t+360;G.burnouts++;const n=Object.values(G.nodes).find(n=>n.task&&n.task.eng===e.id);if(n)n.task=null;e.busy=null;log(e.name+' burned out and is offline for six hours.','bad');toast(e.name+' burned out')}
   }
-  G.incs=G.incs.filter(i=>!(i.state==='resolved'&&G.t-i.resolvedAt>45&&i.err<.0005));
-  if(G.sel&&!G.incs.find(i=>i.id===G.sel))G.sel=null;
-  if(G.t-G.lastSample>=5){G.lastSample=G.t;G.svcs.forEach(s=>{s.hist.push(s.err);if(s.hist.length>48)s.hist.shift()})}
-  if(G.t>=G.day*DAYMIN+8*60)endShift();
+  for(const n of Object.values(G.nodes))if(n.task&&G.t>=n.task.end)complete(n);
+  G.faults=G.faults.filter(f=>!(f.fixed&&f.own<.0005));
+  G.alerts=G.alerts.filter(a=>!(a.cleared&&G.t-a.clearedAt>20));
+  if(SLOS.filter(id=>N(id).hot>0).length>=2&&['db','queue','store'].some(id=>N(id).own>.1))hint('cascade','Several services burning at once? Follow the red edges to what they share.');
+  if(G.t-G.lastSample>=5){G.lastSample=G.t;SLOS.forEach(id=>{const s=N(id);s.hist.push(s.user);if(s.hist.length>48)s.hist.shift()})}
+  if(G.t-(G.series.at(-1)?.t??-99)>=60)G.series.push({t:G.t,b:SLOS.map(id=>1-N(id).bad/N(id).budget),trust:G.trust});
+  if(G.t>=G.day*DAYMIN+480)endShift();
 }
-/* ---------- rendering ---------- */
-function buildSvcs(){
-  $('#svcs').innerHTML=G.svcs.map(s=>`<article class="p svc" id="s-${s.id}"><div class="sh"><span class="dot"></span><b>${s.name}</b><span class="slo">SLO ${s.slo}%</span></div>
-  <div class="nums"><div><small>Burn rate</small><span class="big mono" data-k="burn">0×</span></div><div><small>Errors now</small><span class="mono" data-k="err">0%</span></div><div><small>Traffic</small><span class="mono" data-k="traf">1.0×</span></div></div>
-  <div class="spark"><canvas></canvas></div>
-  <div class="bl"><small>Error budget left (5-day window)</small><span class="mono" data-k="bud">100%</span></div><div class="track"><i></i></div>
-  <div class="sf"><span data-k="next"></span><button class="btn" data-act="freeze" data-svc="${s.id}">Freeze</button></div></article>`).join('');
+function post(kind,auto){
+  if(kind==='resolved'){
+    if(SLOS.some(id=>burnOf(N(id))>=6)){G.trust-=10;log('Posted “Resolved” while customers still see errors. Trust drops.','bad');toast('Premature all-clear: trust −10')}
+    else if(G.incident||G.status!=='ok'){G.trust=Math.min(100,G.trust+3);log('Status page: resolved.','good')}
+    G.status='ok';G.incident=false;G.lastPost=G.t;return;
+  }
+  if(!G.incident&&!SLOS.some(id=>burnOf(N(id))>=6)){G.trust-=2;log('Status update posted with no customer impact. Customers get nervous.','bad');return}
+  G.status=kind;G.lastPost=G.t;log((auto?'Comms lead posted: ':'Status page: ')+kind+'.');
 }
-function spark(s,cv){
-  const W=cv.clientWidth,H=cv.clientHeight,d=devicePixelRatio||1;if(!W)return;
-  if(cv.width!==W*d){cv.width=W*d;cv.height=H*d}
-  const x=cv.getContext('2d');x.setTransform(d,0,0,d,0,0);x.clearRect(0,0,W,H);
-  const lim=(100-s.slo)/100,mx=Math.max(lim*3,...s.hist)*1.1,n=s.hist.length;
-  const Y=v=>H-2-(v/mx)*(H-4),X=i=>i/(n-1)*W;
-  x.strokeStyle='#8a909c';x.setLineDash([3,4]);x.beginPath();x.moveTo(0,Y(lim));x.lineTo(W,Y(lim));x.stroke();x.setLineDash([]);
-  const hot=s.err>lim;x.beginPath();s.hist.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(0,Y(v)));
-  x.lineTo(W,H);x.lineTo(0,H);x.closePath();x.fillStyle=hot?'#e5322d33':'#2f5cff22';x.fill();
-  x.beginPath();s.hist.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(0,Y(v)));x.strokeStyle=hot?'#e5322d':'#2f5cff';x.lineWidth=2;x.stroke();
+/* ---------- exec events ---------- */
+const EVENTS=[
+ {ok:()=>true,who:'VP of Product',msg:'Big customer demo this afternoon. Can the Reports feature ship now instead of waiting for the release train?',
+  a:['Ship it now','+3 features, 35% chance of a bad release on Report Renderer, freeze ignored',()=>deploy(N('reports'),{force:1,extra:3,p:.35})],
+  b:['Hold for the train','No features now; the VP is unimpressed',()=>log('You held the Reports release.')]},
+ {ok:()=>true,who:'Marketing',msg:'Campaign launches at 13:00. Expect double traffic until 17:00.',
+  a:['Pre-scale now','An engineer spends 30 min scaling; no traffic surges this afternoon',()=>{const e=G.team.filter(e=>!e.out&&e.busy==null).sort((a,b)=>a.fat-b.fat)[0];if(e){e.busy='ext';e.extEnd=G.t+30}G.prescale=G.day;log('Pre-scaling for the campaign'+(e?' ('+e.name+')':'')+'.')}],
+  b:['We’ll handle it','Traffic surges hit Edge Gateway and Ledger API this afternoon',()=>{const b=(G.day-1)*DAYMIN;G.sched.push({at:b+785,node:'edge',cause:'spike',sev:.3},{at:b+800,node:'ledger',cause:'spike',sev:.3})}]},
+ {ok:()=>true,who:'Account team',msg:'An enterprise customer escalated: “reports are slow.” They want an engineer on a call right now.',
+  a:['Send an engineer','One engineer is off the board for an hour; trust +6',()=>{const e=G.team.filter(e=>!e.out&&e.busy==null).sort((a,b)=>a.fat-b.fat)[0];if(e){e.busy='ext';e.extEnd=G.t+60;G.trust=Math.min(100,G.trust+6);log(e.name+' joined the customer call.')}else{G.trust-=4;log('Nobody was free for the customer call.','bad')}}],
+  b:['Send a written update','Trust −5',()=>{G.trust-=5;log('The customer got an email instead of a call.')}]},
+ {ok:()=>true,who:'Security',msg:'TLS cipher update needed on the Edge Gateway. Do it today?',
+  a:['Change it now','+1 feature, 25% chance of a bad Edge config push',()=>deploy(N('edge'),{force:1,extra:1,p:.25})],
+  b:['Schedule it next sprint','Certificate risk on the Edge doubles for the rest of the sprint',()=>{G.debt=2;log('TLS change deferred. Edge certificate risk is up.')}]},
+ {ok:()=>SLOS.some(id=>1-N(id).bad/N(id).budget<.35),who:'VP of Engineering',msg:()=>{const s=SLOS.map(N).sort((a,b)=>(1-a.bad/a.budget)-(1-b.bad/b.budget))[0];return 'The quarter needs the '+s.name+' feature. Its error budget is nearly gone. Ship anyway?'},
+  a:['Ship anyway','+2 features, normal release risk on the lowest-budget service',()=>{const s=SLOS.map(N).sort((a,b)=>(1-a.bad/a.budget)-(1-b.bad/b.budget))[0];deploy(s,{force:1,extra:2})}],
+  b:['Enforce the policy','Freeze that service; trust +2',()=>{const s=SLOS.map(N).sort((a,b)=>(1-a.bad/a.budget)-(1-b.bad/b.budget))[0];s.frozen=true;G.trust=Math.min(100,G.trust+2);log(s.name+' frozen under the error budget policy.')}]}];
+let curEv=null;
+function event(){
+  const pool=EVENTS.filter(e=>e.ok());const late=pool.find(e=>e.who==='VP of Engineering');curEv=late&&Math.random()<.6?late:pick(pool.filter(e=>e!==late));
+  if(G.auto){curEv.a[2]();curEv=null;return}
+  G.paused=true;const msg=typeof curEv.msg==='function'?curEv.msg():curEv.msg;
+  $('#modal').innerHTML=`<p class="muted">${hhmm(G.t)} · a message from ${curEv.who}</p><h1 style="font-size:clamp(28px,4vw,40px)">${msg}</h1><div class="choice"><button data-act="ev" data-v="a"><b>${curEv.a[0]}</b><span>${curEv.a[1]}</span></button><button data-act="ev" data-v="b"><b>${curEv.b[0]}</b><span>${curEv.b[1]}</span></button></div>`;
+  $('#ov').hidden=false;
 }
-function nextDeploy(s){
-  if(s.frozen)return 'Change freeze on';
-  for(let d=G.day;d<=DAYS;d++)for(let k=0;k<3;k++){const at=(d-1)*DAYMIN+[600,780,960][k]+s.i*20;if(at>G.t&&!G.dd[d+s.id+k])return 'Next release '+(d>G.day?'tomorrow ':'')+hhmm(at)}
-  return 'No releases left';
-}
-function uiSvcs(){
-  const traf=tf(hour());
-  for(const s of G.svcs){
-    const el=$('#s-'+s.id),b=burnOf(s),rem=1-s.bad/s.budget,q=k=>el.querySelector(`[data-k=${k}]`);
-    q('burn').textContent=b.toFixed(1)+'×';q('burn').style.color=b>=14.4?'var(--red)':b>=2?'var(--amber)':'';
-    q('err').textContent=(s.err*100).toFixed(2)+'%';q('traf').textContent=traf.toFixed(1)+'×';
-    q('bud').textContent=Math.round(rem*100)+0+'%';q('bud').style.color=rem<=0?'var(--red)':'';
-    const bar=el.querySelector('.track i');bar.style.width=Math.max(0,rem*100)+'%';bar.style.background=rem<.25?'var(--red)':rem<.5?'var(--amber)':'var(--ok)';
-    q('next').textContent=nextDeploy(s);
-    const dot=el.querySelector('.dot');dot.className='dot'+(b>=6?' bad':b>=1?' warn':'');
-    el.classList.toggle('burning',b>=6);
-    const fb=el.querySelector('[data-act=freeze]');fb.textContent=s.frozen?'Unfreeze':'Freeze';fb.classList.toggle('on',s.frozen);
-    spark(s,el.querySelector('canvas'));
+/* ---------- map ---------- */
+function sprite(n){
+  const slots=y=>`<line class="slot" x1="-40" y1="${y}" x2="22" y2="${y}"/>`;
+  switch(n.type){
+    case 'users':return [-24,0,24].map(x=>`<g transform="translate(${x},${x?6:-2})"><circle class="body" r="10" cy="-12"/><path class="body" d="M-15 18a15 15 0 0 1 30 0z"/></g>`).join('');
+    case 'edge':return `<path class="body" d="M-56 0l20-34h72l20 34-20 34h-72z"/><path class="slot" d="M-30 -8h50M-30 8h50"/><circle class="led" cx="34" cy="-8" r="4"/><circle class="led" cx="34" cy="8" r="4"/>`;
+    case 'svc':return `<rect class="body" x="-54" y="-34" width="108" height="68" rx="9"/>${slots(-14)}${slots(2)}${slots(18)}<circle class="led" cx="36" cy="-14" r="4"/><circle class="led" cx="36" cy="2" r="4"/><circle class="led" cx="36" cy="18" r="4"/>`;
+    case 'db':return `<path class="body" d="M-44 -24v50c0 8 20 14 44 14s44-6 44-14v-50"/><ellipse class="body" cx="0" cy="-24" rx="44" ry="12"/><path class="slot" d="M-44 2c0 8 20 14 44 14s44-6 44-14"/><circle class="led" cx="30" cy="22" r="4"/>`;
+    case 'queue':return `<rect class="body" x="-56" y="-26" width="112" height="52" rx="26"/>${[0,1,2].map(i=>`<rect class="msg" x="-8" y="-8" width="16" height="16" rx="3" fill="var(--blue)" opacity=".6" style="animation-delay:${-i*.8}s"/>`).join('')}<circle class="led" cx="40" cy="0" r="4"/>`;
+    case 'store':return `<path class="body" d="M-44 -24h88l-10 58h-68z"/><ellipse class="body" cx="0" cy="-24" rx="44" ry="10"/><path class="slot" d="M-38 4h76"/><circle class="led" cx="26" cy="20" r="4"/>`;
   }
 }
-const vis=()=>G.incs.filter(i=>i.state!=='hidden'&&i.state!=='dismissed');
-const rank={open:0,working:1,resolved:2};
-let sigQ='',sigD='',sigT='',sigL=-1;
-function uiQueue(){
-  const L=vis().sort((a,b)=>rank[a.state]-rank[b.state]||b.id-a.id);
-  const sig=L.map(i=>i.id+i.state+i.title+(i.task?i.task.eng:'')).join('|')+G.sel;
-  if(sig!==sigQ){sigQ=sig;$('#queue').innerHTML=L.length?L.map(i=>`<button class="inc ${i.state} ${i.id===G.sel?'sel':''}" data-act="sel" data-id="${i.id}"><span class="chip ${i.state}">${i.state==='open'?'PAGE':i.state==='working'?'WORK':'DONE'}</span><span class="t">#${i.id} ${i.title}</span><span class="mono" data-age="${i.id}"></span><span class="m">${svc(i.svc).name}${i.task?' · '+G.team[i.task.eng].name:''}</span></button>`).join(''):'<div class="empty">Pager is quiet. Enjoy it while it lasts.</div>'}
-  L.forEach(i=>{const a=document.querySelector(`[data-age="${i.id}"]`);if(a)a.textContent=Math.floor((i.resolvedAt??G.t)-(i.openedAt??i.t0))+'m'});
+const FIRE='<path d="M0-26c6 10 15 13 15 25a15 15 0 0 1-30 0c0-8 5-11 6-19 3 5 4 6 6 8 0-5 1-10 3-14z" fill="#d8342a"/><path d="M0-6c2 4 6 6 6 11a6 6 0 0 1-12 0c0-3 2-5 3-8 1 2 2 3 3 3 0-2-1-4 0-6z" fill="#ffb03a"/>';
+function edgePath(a,b,v){const [x1,y1]=a,[x2,y2]=b;if(v){const sy=y1+36,ty=y2-38,m=(sy+ty)/2;return `M${x1} ${sy}C${x1} ${m} ${x2} ${m} ${x2} ${ty}`}const sx=x1+56,tx=x2-58,m=(sx+tx)/2;return `M${sx} ${y1}C${m} ${y1} ${m} ${y2} ${tx} ${y2}`}
+function buildMap(){
+  const map=$('#map'),v=map.clientWidth<600,P=POS[v?'v':'h'];layout=v?'v':'h';
+  const [W,H]=P.vb,svg=$('#svg');svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const edges=DEPS.map((d,i)=>`<g class="eg" id="e${i}"><path class="edge${d.c&&d.c<.5?' soft':''}" stroke-width="${d.route?2.4:1.5+d.c*2.5}" d="${edgePath(P[d.from],P[d.to],v)}"/><path class="flow" d="${edgePath(P[d.from],P[d.to],v)}"/></g>`).join('');
+  const nodes=NODES.map(n=>{const [x,y]=P[n.id];return `<g class="nd ${n.type==='users'?'users':''}" data-node="${n.id}" transform="translate(${x},${y})" ${n.type!=='users'?'tabindex="0" role="button" aria-label="'+n.name+'"':''}>
+    <rect class="pulse" x="-62" y="-42" width="124" height="84" rx="16"/><rect class="selr" x="-66" y="-46" width="132" height="92" rx="18"/>
+    ${sprite(n)}<text class="lbl1" y="${n.type==='users'?44:58}">${n.name}</text>${n.slo?`<text class="lbl2" y="75">SLO ${n.slo}%</text>`:n.type!=='users'?'<text class="lbl2" y="75">internal, no SLO</text>':''}
+    <g class="fire" transform="translate(46,-34)">${FIRE}</g><g class="badge" transform="translate(-50,-36)"><circle r="19"/><text y="5"></text></g><g class="wks"></g></g>`}).join('');
+  svg.innerHTML=`<defs><pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#1c1f26" opacity=".09"/></pattern></defs><rect width="${W}" height="${H}" fill="url(#dots)"/>${edges}${nodes}`;
+  sigW='';
+}
+let sigW='';
+function uiMap(){
+  const svg=$('#svg');svg.parentElement.classList.toggle('paused',G.paused);
+  svg.style.setProperty('--dur',(1.8/tf(hour())).toFixed(2)+'s');
+  const firingNodes=new Set(G.alerts.filter(a=>!a.cleared&&!a.acked).map(a=>a.node));
+  for(const n of NODES){
+    const g=svg.querySelector(`[data-node="${n.id}"]`),s=N(n.id);if(!g)continue;
+    if(n.type==='users'){const m=Math.max(...SLOS.map(id=>N(id).user));g.classList.toggle('s2',m>.08);continue}
+    const val=n.slo?s.user:s.own,lvl=n.slo?(burnOf(s)>=6?2:burnOf(s)>=1.5?1:0):(s.own>.08?2:s.own>.01?1:0);
+    g.classList.toggle('s1',lvl===1);g.classList.toggle('s2',lvl===2);g.classList.toggle('sel',G.sel===n.id);g.classList.toggle('pg',firingNodes.has(n.id));
+    g.querySelector('.fire').classList.toggle('on',lvl===2&&val>.15);
+    const b=g.querySelector('.badge');b.classList.toggle('on',lvl===2);b.querySelector('text').textContent=n.slo?Math.round(burnOf(s))+'×':Math.round(s.own*100)+'%';
+  }
+  DEPS.forEach((d,i)=>{const e=document.getElementById('e'+i);let v;if(d.from==='users')v=Math.max(...SLOS.map(id=>N(id).user));else if(d.route)v=N(d.to).user;else v=N(d.to).eff*d.c;e.setAttribute('class','eg '+(v>.08?'e2':v>.01?'e1':''))});
+  const sig=NODES.map(n=>{const s=N(n.id);return s.task?s.task.eng+s.task.kind:''}).join('|')+layout;
+  if(sig!==sigW){sigW=sig;for(const n of NODES){const s=N(n.id),w=svg.querySelector(`[data-node="${n.id}"] .wks`);if(!w)continue;if(!s.task){w.innerHTML='';continue}const e=G.team[s.task.eng];w.innerHTML=`<g class="wk" transform="translate(48,30)"><circle r="17" fill="#fff"/><circle class="ring" r="17" stroke-dasharray="107" stroke-dashoffset="107"/><circle r="13" fill="${e.c}"/><text y="5">${e.name[0]}</text></g>`}}
+  for(const n of NODES){const s=N(n.id);if(!s.task)continue;const r=svg.querySelector(`[data-node="${n.id}"] .ring`);if(r)r.setAttribute('stroke-dashoffset',(107*(1-(G.t-s.task.start)/(s.task.end-s.task.start))).toFixed(1))}
+}
+/* ---------- panels ---------- */
+function face(e,size=48){const mood=e.out?'M-7 9q7-5 14 0':e.fat>70?'M-7 7h14':'M-7 5q7 6 14 0',fat=Math.min(100,e.fat);
+  return `<svg viewBox="-24 -24 48 48" width="${size}" height="${size}" aria-hidden="true"><circle r="22" fill="#fff"/><circle r="22" fill="none" stroke="${fat>70?'#d8342a':fat>45?'#c47a00':'#1f8a55'}" stroke-width="3.5" stroke-dasharray="${(138*fat/100).toFixed(1)} 200" transform="rotate(-90)"/><circle r="17" fill="${e.c}"/><circle r="12" cy="1" fill="#fff" opacity=".92"/><circle cx="-4" cy="-1" r="1.6" fill="#1c1f26"/><circle cx="4" cy="-1" r="1.6" fill="#1c1f26"/><path d="${mood}" stroke="#1c1f26" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`}
+let sigT='';
+function uiTray(){
+  const sig=G.team.map(e=>[e.busy,e.out,Math.round(e.fat/5)].join()).join('|')+G.primary;if(sig===sigT)return;sigT=sig;
+  $('#tray').innerHTML='<span class="lab">Drag a magnet onto a box to put someone on it.</span>'+G.team.map(e=>{const st=e.out?'Burned out':e.busy==='ext'?'Away on a call':e.busy!=null?'On '+N(e.busy).name:'Free';return `<button class="mag ${e.out?'out':e.busy!=null?'busy':''}" data-eng="${e.id}" aria-label="${e.name}, fatigue ${Math.round(e.fat)}, ${st}">${face(e)}<span><b>${e.name}${G.primary===e.id?' · pager':''}</b><small>${st} · fatigue ${Math.round(e.fat)}</small></span></button>`}).join('');
+}
+let sigN='';
+function uiNotes(){
+  const groups={};for(const a of G.alerts){(groups[a.key]=groups[a.key]||[]).push(a)}
+  const L=Object.values(groups).map(g=>({g,lead:g.find(a=>!a.cleared)||g[0],live:g.filter(a=>!a.cleared)})).sort((x,y)=>(x.live.length?0:1)-(y.live.length?0:1)||(x.lead.acked-y.lead.acked)||y.lead.t-x.lead.t);
+  const sig=L.map(x=>x.lead.id+':'+x.live.length+x.lead.acked).join('|')+G.sel;if(sig===sigN)return;sigN=sig;
+  $('#notes').innerHTML='<h2>Pager</h2>'+(L.length?L.slice(0,9).map((x,i)=>{const a=x.lead,cl=!x.live.length;const fr=a.fresh;a.fresh=false;return `<div class="note ${a.acked?'ack':''} ${cl?'cl':''} ${G.sel===a.node?'sel':''} ${fr?'fresh':''}" style="--r:${(i%2?1:-1)*(.6+i%3*.4)}deg">${x.live.length>1?`<span class="cnt">${x.live.length}</span>`:''}<button class="hand" data-act="selnode" data-id="${a.node}" style="background:none;border:0;padding:0;text-align:left;font-size:16px;line-height:1.2">${a.title}</button><span class="nm">${cl?'Cleared':hhmm(a.t)+(a.acked?' · acknowledged':'')}</span>${cl?'':`<span class="nb">${a.acked?'':`<button data-act="ack" data-key="${a.key}">Ack</button>`}<button data-act="silence" data-key="${a.key}">Silence</button></span>`}</div>`}).join(''):'<p class="quiet">No pages. Enjoy it.</p>');
 }
 function avail(){return G.team.filter(e=>!e.out&&e.busy==null)}
+let sigD='';
 function uiDetail(){
-  const inc=G.incs.find(i=>i.id===G.sel);
-  const av=avail();if(G.pickEng==null||!av.find(e=>e.id===G.pickEng))G.pickEng=av.length?av.sort((a,b)=>a.fat-b.fat)[0].id:null;
-  const sig=inc?[inc.id,inc.state,inc.diag&&inc.diag.cause,inc.tried.length,inc.task&&inc.task.kind,av.map(e=>e.id).join(''),G.pickEng,inc.title].join('/'):'none';
+  const n=G.sel&&N(G.sel),av=avail();
+  if(G.pickEng==null||!av.find(e=>e.id===G.pickEng))G.pickEng=av.length?[...av].sort((a,b)=>a.fat-b.fat)[0].id:null;
+  const sig=n?[n.id,n.task&&n.task.kind,n.intel&&n.intel.at,n.tried.length,av.map(e=>e.id).join(''),G.pickEng].join('/'):'none';
   if(sig!==sigD){sigD=sig;
-    if(!inc){$('#det').innerHTML='<h2>Incident</h2><div class="empty">Nothing selected. When the pager goes off, pick the page here, assign someone, and decide: investigate first, or act on a hunch?</div>'}
+    if(!n){$('#det').innerHTML='<h2>Pick a box</h2><p class="muted">Click any service on the board to see what it depends on and what you can do to it. Red marker on an edge means errors are flowing back from a dependency.</p>'}
     else{
-      const s=svc(inc.svc);let h=`<h3>#${inc.id} ${inc.title}</h3><div class="meta">${s.name} · opened ${hhmm(inc.openedAt??inc.t0)} · service burn <b class="mono" id="d-burn"></b></div>`;
-      if(inc.diag)h+=`<div class="clue"><b>${inc.diag.by}'s read (${inc.diag.conf} confidence):</b> ${CAUSES[inc.diag.cause].clue}</div>`;
-      if(inc.tried.length)h+=`<div class="tried">Tried with no effect: ${inc.tried.map(k=>ACTIONS[k].n).join(', ')}</div>`;
-      if(inc.state==='resolved')h+=`<div class="clue">${inc.msg}</div>`;
-      else if(inc.task){const e=G.team[inc.task.eng];h+=`<div class="lbl">${e.name} — ${inc.task.kind==='inv'?'investigating':ACTIONS[inc.task.kind].n.toLowerCase()} · <span class="mono" id="d-left"></span> left</div><div class="prog"><i id="d-prog"></i></div><button class="btn" data-act="cancel">Cancel task</button>`}
+      let h=`<h2>${n.name}</h2><div class="muted">${n.slo?'Customer-facing, SLO '+n.slo+'%':n.type==='edge'?'Front door for every customer request':'Internal dependency, no SLO of its own'}</div>
+      <div class="mrow"><div><small>Its own errors</small><b id="d-own"></b></div>${n.slo?'<div><small>Customer burn</small><b id="d-burn"></b></div>':''}</div>`;
+      const ds=depsOf(n.id),cs=callersOf(n.id);
+      if(ds.length)h+=`<div class="lbl">Depends on</div><div class="deps">${ds.map(d=>`<button class="dep" data-act="selnode" data-id="${d.to}"><span>${N(d.to).name} <span class="muted">${d.c>=.6?'hard':'soft'}</span></span><span class="bar"><i id="dp-${d.to}"></i></span><span class="mono" id="dv-${d.to}"></span></button>`).join('')}</div>`;
+      if(cs.length)h+=`<div class="lbl">Called by</div><div class="row">${cs.map(c=>`<button class="btn" data-act="selnode" data-id="${c}" style="min-height:36px;padding:3px 10px;font-size:14px">${N(c).name}</button>`).join('')}</div>`;
+      if(n.intel){const I=n.intel;h+=`<div class="intel"><b>${I.by}, ${hhmm(I.at)} (${I.conf} confidence)</b><p>${I.cause?CAUSES[I.cause].clue:'No fault found on this box.'}</p>${I.up.length?`<p><b>Failing calls:</b> ${I.up.map(u=>N(u.id).name+' '+pct(u.err)).join(', ')}</p>`:''}</div>`}
+      if(n.tried.length)h+=`<p class="muted">Tried with no effect: ${n.tried.map(k=>ACTIONS[k].n).join(', ')}</p>`;
+      if(n.task){const e=G.team[n.task.eng];h+=`<div class="lbl">${e.name} is ${n.task.kind==='inv'?'investigating':'running “'+ACTIONS[n.task.kind].n+'”'} · <span class="mono" id="d-left"></span> left</div><div class="prog"><i id="d-prog"></i></div><button class="btn" data-act="cancel">Stop the task</button>`}
       else{
-        h+=`<div class="lbl">Assign</div><div class="row">${G.team.map(e=>`<button class="btn ${e.id===G.pickEng?'on':''}" data-act="eng" data-id="${e.id}" ${e.out||e.busy!=null?'disabled':''}>${e.name} <span class="mono">${Math.round(e.fat)}</span></button>`).join('')}</div>`;
-        const dis=G.pickEng==null?'disabled':'',inv=inc.noise?15:(G.up['rb_'+inc.cause]?10:20);
-        h+=`<div class="lbl">Diagnose</div><div class="row"><button class="btn pri" data-act="do" data-k="inv" ${dis}>Investigate · ${inv}m</button><button class="btn warn" data-act="dismiss">Dismiss as noise</button></div>`;
-        h+=`<div class="lbl">Remediate</div><div class="acts">${Object.entries(ACTIONS).map(([k,a])=>`<button class="btn" data-act="do" data-k="${k}" ${dis}>${a.n}<span>${a.t} min</span></button>`).join('')}</div>`;
-        if(G.pickEng==null)h+='<div class="tried">Everyone is busy or offline.</div>';
+        h+=`<div class="lbl">Who</div><div class="row">${G.team.map(e=>`<button class="btn ${e.id===G.pickEng?'on':''}" data-act="eng" data-id="${e.id}" ${e.out||e.busy!=null?'disabled':''}>${e.name} <span class="mono">${Math.round(e.fat)}</span></button>`).join('')}</div>`;
+        h+=actionsHtml(G.pickEng==null);
+        if(G.pickEng==null)h+='<p class="muted">Everyone is busy or offline.</p>';
       }
       $('#det').innerHTML=h;
     }
   }
-  if(inc){const b=$('#d-burn');if(b)b.textContent=burnOf(svc(inc.svc)).toFixed(1)+'×';
-    if(inc.task){const p=$('#d-prog'),l=$('#d-left');if(p)p.style.width=((G.t-inc.task.start)/(inc.task.end-inc.task.start)*100)+'%';if(l)l.textContent=Math.ceil(inc.task.end-G.t)+'m'}}
+  if(n){const o=$('#d-own');if(o)o.textContent=pct(n.own);const b=$('#d-burn');if(b){b.textContent=burnOf(n).toFixed(1)+'×';b.style.color=burnOf(n)>=6?'var(--red)':''}
+    depsOf(n.id).forEach(d=>{const p=$('#dp-'+d.to),v=$('#dv-'+d.to);if(p){p.style.width=Math.min(100,N(d.to).eff*100)+'%';v.textContent=pct(N(d.to).eff)}});
+    if(n.task){const p=$('#d-prog'),l=$('#d-left');if(p)p.style.width=((G.t-n.task.start)/(n.task.end-n.task.start)*100)+'%';if(l)l.textContent=Math.ceil(n.task.end-G.t)+'m'}}
 }
-function face(e){const f=e.out?'M13 27q5-3 10 0':e.fat>70?'M13 26h10':'M13 25q5 4 10 0';return `<svg class="face" viewBox="0 0 36 36"><circle cx="18" cy="18" r="17" fill="${e.c}"/><circle cx="18" cy="20" r="11" fill="#fff" opacity=".92"/><circle cx="14" cy="18" r="1.6" fill="#14161a"/><circle cx="22" cy="18" r="1.6" fill="#14161a"/><path d="${f}" stroke="#14161a" stroke-width="1.8" fill="none" stroke-linecap="round"/>${e.fat>70&&!e.out?'<path d="M9 14h6M21 14h6" stroke="#14161a" stroke-width="1.4"/>':''}</svg>`}
-function uiTeam(){
-  const sig=G.team.map(e=>[e.busy,e.out,e.fat>70].join()).join('|')+G.primary;
-  if(sig!==sigT){sigT=sig;$('#team').innerHTML=G.team.map(e=>{const inc=G.incs.find(i=>i.id===e.busy);return `<div class="eng ${e.out?'out':''}">${face(e)}<b>${e.name}</b>${G.primary===e.id?'<span class="badge">Primary on-call</span>':'<span class="badge" style="color:var(--mute)">Secondary</span>'}<small>${e.out?'Burned out — offline':inc?(inc.task.kind==='inv'?'Investigating':'Remediating')+' #'+inc.id:'Available'}</small><div class="track"><i id="f-${e.id}"></i></div><small class="mono" id="fl-${e.id}" style="min-height:0"></small></div>`}).join('')}
-  G.team.forEach(e=>{const b=$('#f-'+e.id);b.style.width=e.fat+'%';b.style.background=e.fat>70?'var(--red)':e.fat>45?'var(--amber)':'var(--ok)';$('#fl-'+e.id).textContent='Fatigue '+Math.round(e.fat)});
+function actionsHtml(dis){const d=dis?'disabled':'';return `<div class="lbl">Diagnose</div><button class="btn pri" data-act="do" data-k="inv" ${d}>Investigate · ${G.up.tracing?10:20} min</button><div class="lbl">Fix</div><div class="acts">${Object.entries(ACTIONS).map(([k,a])=>`<button class="btn" data-act="do" data-k="${k}" ${d}>${a.n}<span>${a.t} min</span></button>`).join('')}</div>`}
+let sigS='';
+function uiStatus(){
+  const stale=G.incident&&(G.status==='ok'||G.t-G.lastPost>30);
+  const sig=[G.status,G.incident,stale,Math.round(G.trust)].join();if(sig===sigS)return;sigS=sig;
+  const label={ok:'All systems operational',investigating:'Investigating an issue',identified:'Issue identified, fix in progress',monitoring:'Fix deployed, monitoring'}[G.status];
+  const col=G.status==='ok'?'var(--ok)':G.status==='monitoring'?'var(--blue)':'var(--amber)';
+  $('#status').innerHTML=`<div class="muted">What customers see on the status page</div><div class="pstate"><span class="pdot" style="background:${col}"></span>${label}</div>
+  <div class="trust"><b>${Math.round(G.trust)}</b><span class="muted">customer trust</span></div><div class="bar" style="height:8px"><i style="width:${G.trust}%;background:${G.trust<50?'var(--red)':G.trust<75?'var(--amber)':'var(--ok)'}"></i></div>
+  <p class="warnline">${stale?(G.status==='ok'?'Customers are hitting errors and the page says all good.':'No update for '+Math.round(G.t-G.lastPost)+' min. Trust is draining.'):''}</p>
+  <div class="row">${['investigating','identified','monitoring','resolved'].map(k=>`<button class="btn" data-act="post" data-k="${k}" style="min-height:38px;padding:3px 10px;font-size:14px">${k[0].toUpperCase()+k.slice(1)}</button>`).join('')}</div>`;
+  $('#trustTop').textContent=Math.round(G.trust);$('#trustBar').style.width=G.trust+'%';$('#trustBar').style.background=G.trust<50?'var(--red)':G.trust<75?'var(--amber)':'var(--ok)';
 }
+function buildSlos(){$('#slos').innerHTML=SLOS.map(id=>{const s=N(id);return `<div class="slo" id="t-${id}"><div class="h"><b>${s.name}</b><span>SLO ${s.slo}%</span></div><span class="bn" data-k="burn"></span><canvas></canvas><div class="bud"><span>Error budget left</span><span class="mono" data-k="bud"></span></div><div class="bt"><i></i></div><div class="sf"><span data-k="next"></span><button class="btn" data-act="freeze" data-id="${id}">Freeze</button></div></div>`}).join('')}
+function nextRel(s){if(s.frozen)return 'Releases frozen';for(let d=G.day;d<=DAYS;d++)for(let k=0;k<SLOTS(s.id).length;k++){const at=(d-1)*DAYMIN+SLOTS(s.id)[k]+s.i*20;if(at>G.t&&!G.dd[d+s.id+k])return 'Next release '+(d>G.day?'tomorrow ':'')+hhmm(at)}return 'No releases left'}
+function uiSlos(){
+  for(const id of SLOS){const s=N(id),el=$('#t-'+id),b=burnOf(s),rem=1-s.bad/s.budget,q=k=>el.querySelector(`[data-k=${k}]`);
+    q('burn').textContent=b.toFixed(1)+'× burn';q('burn').style.color=b>=6?'var(--red)':b>=1.5?'var(--amber)':'';
+    q('bud').textContent=Math.round(rem*100)+0+'%';const bar=el.querySelector('.bt i');bar.style.width=Math.max(0,rem*100)+'%';bar.style.background=rem<.25?'var(--red)':rem<.5?'var(--amber)':'var(--ok)';
+    q('next').textContent=nextRel(s);el.classList.toggle('hot',b>=6);
+    const fb=el.querySelector('[data-act=freeze]');fb.textContent=s.frozen?'Unfreeze':'Freeze';fb.classList.toggle('on',s.frozen);
+    const cv=el.querySelector('canvas'),W=cv.clientWidth,H=cv.clientHeight,dp=devicePixelRatio||1;if(!W)continue;if(cv.width!==Math.round(W*dp)){cv.width=Math.round(W*dp);cv.height=Math.round(H*dp)}
+    const x=cv.getContext('2d');x.setTransform(dp,0,0,dp,0,0);x.clearRect(0,0,W,H);const lim=(100-s.slo)/100,mx=Math.max(lim*3,...s.hist)*1.1,Y=v=>H-2-v/mx*(H-4),X=i=>i/(s.hist.length-1)*W;
+    x.strokeStyle='#5d6470';x.setLineDash([3,4]);x.lineWidth=1;x.beginPath();x.moveTo(0,Y(lim));x.lineTo(W,Y(lim));x.stroke();x.setLineDash([]);
+    x.beginPath();s.hist.forEach((v,i)=>i?x.lineTo(X(i),Y(v)):x.moveTo(0,Y(v)));x.strokeStyle=s.user>lim?'#d8342a':'#2456c9';x.lineWidth=2.2;x.lineJoin='round';x.stroke()}
+}
+let lastLog=null;
 function ui(){
-  $('#clock').textContent=hhmm(G.t);$('#tday').textContent='Day '+Math.min(G.day,DAYS)+' of '+DAYS+(night()?' · night':'')+(G.paused&&G.running?' · paused':'');
-  $('#feat').textContent=G.features+' / '+TARGET;$('#toil').textContent=G.toil.toFixed(1);$('#pages').textContent=G.pages;
-  $('#bpause').textContent=G.paused?'▶':'❚❚';$('#bpause').setAttribute('aria-label',G.paused?'Resume':'Pause');
-  uiSvcs();uiQueue();uiDetail();uiTeam();
-  if(G.log.length&&(G.log.length!==sigL||G.log[0]!==uiLast)){sigL=G.log.length;uiLast=G.log[0];$('#log').innerHTML=G.log.slice(0,40).map(l=>`<li class="${l.cls}"><time class="mono">D${l.d} ${hhmm(l.t)}</time><span>${l.msg}</span></li>`).join('')}
+  $('#clock').textContent=hhmm(G.t);$('#day').textContent='Day '+Math.min(G.day,DAYS)+' of '+DAYS+(night()?', night shift':'')+(G.paused&&G.running?', paused':'');
+  $('#feat').textContent=G.features+' / '+TARGET;$('#toil').textContent=G.toil.toFixed(1);
+  $('#bpause').textContent=G.paused?'Resume':'Pause';
+  uiMap();uiTray();uiNotes();uiDetail();uiStatus();uiSlos();
+  if(G.log[0]!==lastLog){lastLog=G.log[0];$('#log').innerHTML=G.log.slice(0,50).map(l=>`<li class="${l.cls}"><time>D${l.d} ${hhmm(l.t)}</time><span>${l.msg}</span></li>`).join('')}
 }
-let uiLast=null;
 /* ---------- overlays ---------- */
 function intro(){
-  $('#modal').innerHTML=`<h1>Burn Rate</h1><p style="font-size:17px">You lead on-call for four SaaS services over a five-day sprint. Product wants ${TARGET} features shipped. Your SLOs want you to stop shipping. Your team wants to sleep. You can't give everyone what they want — spend your error budget like it's money.</p>
-  <div class="how"><div><b>Watch the burn</b>Each service has an SLO and a five-day error budget. Burn rate is how fast you're spending it: 1× spends it exactly on schedule; 14.4× is a fire.</div>
-  <div><b>Work the pager</b>Pages arrive with a title that may be wrong — or noise. Assign an engineer, investigate (slower, informative) or act on a hunch (faster, risky). Check the service's burn before trusting an alert.</div>
-  <div><b>Mind the humans</b>Every page and every task tires your people, twice as much at night. Fatigue over 70 makes them slow and wrong. At 100 they burn out.</div>
-  <div><b>Plan the next day</b>At each 08:00 handoff you spend engineering points on postmortems, automation, runbooks or better alerts. Toil eats those points. Leftovers become features.</div></div>
-  <p class="tried">Releases go out at 10:00, 13:00 and 16:00. Freeze a service to stop its releases. Space pauses; 1, 2, 3 set speed.</p>
-  <button class="btn pri" data-act="start" style="font-size:17px;padding:10px 22px">Take the pager</button>`;
+  $('#modal').innerHTML=`<h1>Burn Rate</h1><p style="font-size:18px">You run on-call for a small SaaS platform for one five-day sprint. Four customer-facing services each have an SLO and an error budget. Underneath them sit a database, a queue and object storage that everything leans on. When those break, the failure spreads upward and every service starts paging at once.</p>
+  <div class="how"><div><b>Read the board</b>Red marker on an edge means errors are flowing back from a dependency. The box that pages first is rarely the one that broke.</div>
+  <div><b>Drag the magnets</b>Drop an engineer on a box, then investigate or try a fix. Tired engineers are slow and wrong. At 100 fatigue they burn out and go offline for six hours.</div>
+  <div><b>Talk to customers</b>During a major incident, keep the status page current. Silence drains trust; a premature all-clear is worse.</div>
+  <div><b>Spend the budget</b>Product wants ${TARGET} features. Each 08:00 handoff you buy postmortem fixes, automation, resilience or better alerting with the time toil didn't eat.</div></div>
+  <p class="muted">Releases go out at 10:00, 13:00 and 16:00 (Auth Gateway only at 13:00). Space pauses, keys 1–3 set speed, Esc deselects.</p>
+  <button class="btn pri" data-act="start" style="font-size:18px;padding:10px 24px">Take the pager</button>`;
   $('#ov').hidden=false;
 }
-function endShift(){
-  G.running=false;G.paused=true;
-  if(G.day>=DAYS)return final();
-  const pts=Math.max(1,8-Math.round(G.toil));G.plan={pts,picks:new Set(),toilCost:8-pts};renderPlan();$('#ov').hidden=false;
-}
+function endShift(){G.running=false;G.paused=true;if(G.day>=DAYS)return final();G.plan={pts:Math.max(1,8-Math.round(G.toil)),picks:new Set()};G.plan.toilCost=8-G.plan.pts;if(!G.auto){renderPlan();$('#ov').hidden=false}}
 function planItems(){
-  const pms=[],seen=new Set();
-  G.today.forEach(r=>{const k=r.svc+':'+r.cause;if(seen.has(k)||G.pm[k])return;seen.add(k);pms.push({id:'pm:'+k,g:'Postmortem action items',n:'Fix '+CAUSES[r.cause].n.toLowerCase()+' in '+svc(r.svc).name,c:1,d:r.cause==='deploy'?'Better tests and rollout checks: bad-deploy odds here drop 60%.':'Fix the root cause: this incident type here becomes 70% rarer.'+(r.cause==='leak'?' Stops restart recurrences.':'')})});
-  return [...pms,...UP.filter(u=>!(u.id==='auto_cert'&&G.up.auto_cert))];
+  const pm=[],seen=new Set();
+  G.today.forEach(r=>{const k=r.node+':'+r.cause;if(seen.has(k)||G.pm[k])return;seen.add(k);pm.push({id:'pm:'+k,g:'Postmortem action items',n:'Fix '+CAUSES[r.cause].n.toLowerCase()+' in '+N(r.node).name,c:1,d:r.cause==='deploy'?'Better tests and rollout checks: bad-release odds here drop 60%.':'Fix the root cause: this failure here becomes 70% rarer.'})});
+  return [...pm,...UP.filter(u=>!(u.id==='auto_cert'&&G.up.auto_cert))];
 }
 function renderPlan(){
-  const P=G.plan,items=planItems(),spent=[...P.picks].reduce((a,id)=>a+items.find(i=>i.id===id).c,0),left=P.pts-spent;
-  const groups=[...new Set(items.map(i=>i.g))];
-  $('#modal').innerHTML=`<h1>Day ${G.day} handoff</h1><p>${G.dayStats.incidents} real incidents, ${G.dayStats.pages} pages, ${G.today.length} resolved. Primary on-call rotates to ${G.team[(G.primary+1)%4].name}.</p>
-  <div class="pts">Engineering capacity: <b class="mono">${left}</b> of ${P.pts} points left${P.toilCost>0?` <span class="tried">(toil consumed ${P.toilCost} of 8)</span>`:''}</div>
-  ${groups.map(g=>`<h4>${g}</h4><div class="cards">${items.filter(i=>i.g===g).map(i=>{const own=G.up[i.id]&&!i.rep,pk=P.picks.has(i.id);return `<button class="card ${pk?'picked':''}" data-act="pick" data-id="${i.id}" ${own||(!pk&&i.c>left)?'disabled':''}><b><span>${i.n}</span><span class="mono">${own?'owned':i.c+' pt'}</span></b><small>${i.d}</small></button>`}).join('')}</div>`).join('')}
-  <p>Unspent points go to feature work: <b>+${left}</b> feature${left===1?'':'s'}.</p>
-  <button class="btn pri" data-act="nextday" style="font-size:17px;padding:10px 22px">Start day ${G.day+1}</button>`;
-  P.left=left;
+  const P=G.plan,items=planItems(),spent=[...P.picks].reduce((a,id)=>a+(items.find(i=>i.id===id)?.c||0),0),left=P.pts-spent;P.left=left;
+  $('#modal').innerHTML=`<h1>Day ${G.day} handoff</h1><p>${G.dayStats.faults} failures, ${G.dayStats.pages} pages, ${G.today.length} fixes. ${G.team[(G.primary+1)%4].name} takes the pager next.</p>
+  <div class="pts">Engineering time: <b>${left}</b> of ${P.pts} points left${P.toilCost>0?` <span class="muted">(toil ate ${P.toilCost} of 8)</span>`:''}</div>
+  ${[...new Set(items.map(i=>i.g))].map(g=>`<h4 class="g">${g}</h4><div class="cards">${items.filter(i=>i.g===g).map(i=>{const own=G.up[i.id]&&!i.rep,pk=P.picks.has(i.id);return `<button class="up ${pk?'picked':''}" data-act="pick" data-id="${i.id}" ${own||(!pk&&i.c>left)?'disabled':''}><b><span>${i.n}</span><span class="mono">${own?'owned':i.c+' pt'}</span></b><small>${i.d}</small></button>`}).join('')}</div>`).join('')}
+  <p>Unspent points become feature work: <b>+${left}</b> feature${left===1?'':'s'}.</p><button class="btn pri" data-act="nextday" style="font-size:18px;padding:10px 24px">Start day ${G.day+1}</button>`;
 }
 function nextDay(){
   const P=G.plan;let rest=0;
-  P.picks.forEach(id=>{if(id.startsWith('pm:'))G.pm[id.slice(3)]=true;else if(id==='rest')rest++;else G.up[id]=true});
-  G.features+=P.left;if(P.left)log('Leftover capacity shipped '+P.left+' feature(s).');
-  G.team.forEach(e=>{if(e.out){e.out=false;e.fat=60}else e.fat=Math.max(0,e.fat-35-25*rest)});
-  G.primary=(G.primary+1)%4;G.toil=0;G.today=[];G.dayStats={pages:0,incidents:0};G.day++;
-  log('Day '+G.day+' begins. '+G.team[G.primary].name+' holds the pager.');
-  $('#ov').hidden=true;G.running=true;G.paused=false;
+  P.picks.forEach(id=>{if(id.startsWith('pm:'))G.pm[id.slice(3)]=1;else if(id==='rest')rest++;else G.up[id]=1});
+  G.features+=P.left;if(P.left)log('Spare capacity shipped '+P.left+' feature'+(P.left>1?'s':'')+'.');
+  G.team.forEach(e=>{if(e.out){e.out=false;e.fat=60}else e.fat=Math.max(0,e.fat-35-25*rest);if(e.busy==='ext')e.busy=null});
+  G.primary=(G.primary+1)%4;G.toil=0;G.today=[];G.dayStats={pages:0,faults:0};G.day++;G.evAt=rnd(630,900);
+  log('Day '+G.day+' begins. '+G.team[G.primary].name+' has the pager.');
+  $('#ov').hidden=true;G.running=true;G.paused=false;sigT=sigD='';
+}
+function spark(vals,lo,hi,col){const n=vals.length;if(n<2)return '';const Y=v=>58-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*56,pts=vals.map((v,i)=>(i/(n-1)*300).toFixed(1)+','+Y(v).toFixed(1)).join(' ');return `<svg viewBox="0 0 300 60" preserveAspectRatio="none"><line x1="0" x2="300" y1="${Y(0)}" y2="${Y(0)}" stroke="#5d6470" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>`}
+function score(){
+  const rows=SLOS.map(id=>({s:N(id),rem:1-N(id).bad/N(id).budget}));
+  const rel=rows.reduce((a,r)=>a+(r.rem>=0?10:Math.max(0,10*(1+r.rem))),0),vel=25*Math.min(1,G.features/TARGET);
+  const avgF=G.team.reduce((a,e)=>a+e.fat,0)/4,team=Math.max(0,15*(1-avgF/100)-4*G.burnouts),trust=20*G.trust/100;
+  return {rows,rel,vel,team,trust,avgF,total:Math.round(rel+vel+team+trust)};
 }
 function final(){
-  const rows=G.svcs.map(s=>({s,rem:1-s.bad/s.budget}));
-  const rel=rows.reduce((a,r)=>a+(r.rem>=0?12.5:Math.max(0,12.5*(1+r.rem))),0);
-  const vel=30*Math.min(1,G.features/TARGET);
-  const avgF=G.team.reduce((a,e)=>a+e.fat,0)/4,team=Math.max(0,20*(1-avgF/100)-5*G.burnouts);
-  const score=Math.round(rel+vel+team);
-  const title=score>=85?'Principal SRE':score>=70?'Senior SRE':score>=55?'Site Reliability Engineer':score>=40?'Hero-culture survivor':'Pager zombie';
+  const S=score();G.final=S;if(G.auto)return;
+  const title=S.total>=85?'Principal SRE':S.total>=70?'Senior SRE':S.total>=55?'Site Reliability Engineer':S.total>=40?'Hero-culture survivor':'Pager zombie';
   const L=[];
-  if(rows.some(r=>r.rem<0)&&G.st.exhaustedShips>0)L.push(`You shipped ${G.st.exhaustedShips} release(s) on services with no error budget left. That's the moment a budget policy exists for.`);
-  if(rows.every(r=>r.rem>.6)&&G.features<TARGET*.75)L.push('Lots of budget left unspent while features lagged. Unused error budget is velocity you paid for and never used.');
-  if(G.noisePages>8&&!G.up.burn)L.push(`${G.noisePages} pages were pure noise. Alerting on symptoms (burn rate) instead of causes (CPU, heap) is the cheapest sleep you can buy.`);
-  if(G.burnouts)L.push(`${G.burnouts} burnout(s). Heroics feel like reliability until the hero goes offline mid-incident.`);
-  if(G.st.auto)L.push(`Automation quietly fixed ${G.st.auto} incident(s), many before a human was paged. That's toil you never paid for.`);
+  if(S.rows.some(r=>r.rem<0)&&G.st.exShips)L.push(`${G.st.exShips} release(s) went out on services with no error budget left. That's exactly when a budget policy should bite.`);
+  if(!G.up.correlate&&G.pages>45)L.push(`${G.pages} pages for ${G.st.faults} failures. Without correlation, one broken database pages you once per service that depends on it.`);
+  if(G.noisePages>8&&!G.up.burn)L.push(`${G.noisePages} pages were noise. Alerting on customer impact instead of CPU is the cheapest sleep you can buy.`);
+  if(!G.up.breakers&&S.rows.some(r=>r.rem<0))L.push('Every dependency failure hit its callers at full strength. Circuit breakers turn outages into degradations.');
+  if(G.trust<60)L.push(`Customer trust ended at ${Math.round(G.trust)}. Outages cost trust; silence during outages costs more.`);
+  if(G.burnouts)L.push(`${G.burnouts} burnout(s). Heroics look like reliability right up until the hero goes offline mid-incident.`);
+  if(G.st.auto)L.push(`Automation fixed ${G.st.auto} failure(s) on its own, several before anyone was paged.`);
   if(!Object.keys(G.pm).length)L.push('No postmortem action items were funded, so the same failures kept coming back.');
-  if(!L.length)L.push('Balanced run: budget spent on purpose, people rested, product got its features. Write it up as the playbook.');
+  if(!L.length)L.push('A balanced sprint: budget spent on purpose, customers kept informed, people rested. Write this one up as the playbook.');
   const ttr=G.st.ttr.length?Math.round(G.st.ttr.reduce((a,b)=>a+b,0)/G.st.ttr.length):0;
-  $('#modal').innerHTML=`<p class="tried">Sprint complete</p><div class="grade mono">${score}</div><h1>${title}</h1>
-  <table><thead><tr><th>Service</th><th class="n">SLO</th><th class="n">Budget left</th><th>Result</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.s.name}</td><td class="n mono">${r.s.slo}%</td><td class="n mono">${(r.rem*100).toFixed(0)}%</td><td style="color:${r.rem>=0?'var(--ok)':'var(--red)'}">${r.rem>=0?'SLO met':'SLO missed'}</td></tr>`).join('')}</tbody></table>
-  <div class="how"><div><b>Reliability ${rel.toFixed(0)} / 50</b>SLOs met across four services.</div><div><b>Velocity ${vel.toFixed(0)} / 30</b>${G.features} of ${TARGET} features shipped.</div><div><b>Team ${team.toFixed(0)} / 20</b>Average fatigue ${avgF.toFixed(0)}, ${G.burnouts} burnout(s).</div><div><b>Ops</b>${G.st.real} incidents, mean time to resolve ${ttr} min, ${G.pages} pages (${G.noisePages} noise).</div></div>
-  <h4>Retro</h4><ul>${L.map(l=>`<li>${l}</li>`).join('')}</ul>
-  <button class="btn pri" data-act="again" style="font-size:17px;padding:10px 22px">Run another sprint</button>`;
+  $('#modal').innerHTML=`<p class="muted">Sprint complete</p><div class="grade">${S.total}</div><h1>${title}</h1>
+  <div class="charts">${S.rows.map((r,i)=>`<div><b>${r.s.name}</b><span style="color:${r.rem>=0?'var(--ok)':'var(--red)'}">${Math.round(r.rem*100)}%</span>${spark(G.series.map(p=>p.b[i]).concat(r.rem),-.5,1,r.rem>=0?'#1f8a55':'#d8342a')}</div>`).join('')}<div><b>Customer trust</b><span>${Math.round(G.trust)}</span>${spark(G.series.map(p=>p.trust/100).concat(G.trust/100),0,1,'#2456c9')}</div></div>
+  <p class="muted">Lines show error budget left across the sprint; the dashed line is zero.</p>
+  <div class="how"><div><b>Reliability ${S.rel.toFixed(0)}/40</b>${S.rows.filter(r=>r.rem>=0).length} of 4 SLOs met.</div><div><b>Velocity ${S.vel.toFixed(0)}/25</b>${G.features} of ${TARGET} features.</div><div><b>Trust ${S.trust.toFixed(0)}/20</b>${G.st.majors} major incident(s).</div><div><b>Team ${S.team.toFixed(0)}/15</b>Average fatigue ${S.avgF.toFixed(0)}, ${G.burnouts} burnout(s).</div></div>
+  <p class="muted">${G.st.faults} failures, mean time to fix ${ttr} min, ${G.pages} pages (${G.noisePages} noise).</p>
+  <h4 class="g">Retro</h4><ul>${L.map(l=>`<li>${l}</li>`).join('')}</ul>
+  <button class="btn pri" data-act="again" style="font-size:18px;padding:10px 24px">Run another sprint</button>`;
   $('#ov').hidden=false;
 }
 /* ---------- input ---------- */
 function setSpeed(v){G.speed=v;document.querySelectorAll('[data-act=speed]').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===v))}
+function closePop(){$('#pop').hidden=true;popNode=null}
+let popNode=null,popEng=null;
+function openPop(id,eid){
+  const n=N(id),e=G.team[eid];if(!n.causes)return;G.sel=id;G.pickEng=eid;
+  if(n.task){toast(G.team[n.task.eng].name+' is already working on '+n.name+'.');return}
+  popNode=id;popEng=eid;const pop=$('#pop'),m=$('#map').getBoundingClientRect(),r=$('#svg').querySelector(`[data-node="${id}"]`).getBoundingClientRect();
+  pop.innerHTML=`<h4>${e.name} on ${n.name}</h4>${actionsHtml(false)}<button class="btn" data-act="closepop" style="margin-top:8px;width:100%">Cancel</button>`;pop.hidden=false;
+  const pw=pop.offsetWidth,ph=pop.offsetHeight;let x=r.right-m.left+8,y=r.top-m.top-10;if(x+pw>m.width)x=r.left-m.left-pw-8;if(x<0)x=Math.max(4,(m.width-pw)/2);y=Math.max(4,Math.min(y,m.height-ph-4));pop.style.left=x+'px';pop.style.top=y+'px';
+}
+let justDropped=0;
 document.addEventListener('click',ev=>{
-  const b=ev.target.closest('[data-act]');if(!b||b.disabled)return;const a=b.dataset.act,inc=G.incs.find(i=>i.id===G.sel);
-  if(a==='start'){$('#ov').hidden=true;G.running=true;G.paused=false;log('Day 1 begins. '+G.team[0].name+' holds the pager.');try{AC=AC||new AudioContext()}catch(e){}}
+  if(Date.now()-justDropped<300)return;
+  const b=ev.target.closest('[data-act]');
+  if(!b){const nd=ev.target.closest('[data-node]');if(nd&&nd.dataset.node!=='users'){G.sel=nd.dataset.node;sigD=''}if(!ev.target.closest('#pop'))closePop();ui();return}
+  if(b.disabled)return;const a=b.dataset.act,n=G.sel&&N(G.sel);
+  if(a==='start'){$('#ov').hidden=true;G.running=true;G.paused=false;log('Day 1 begins. '+G.team[0].name+' has the pager.');try{AC=AC||new AudioContext()}catch(e){}}
   else if(a==='pause'){if(G.running)G.paused=!G.paused}
   else if(a==='speed')setSpeed(+b.dataset.v);
   else if(a==='mute'){muted=!muted;b.textContent=muted?'Sound off':'Sound on';b.setAttribute('aria-pressed',muted)}
-  else if(a==='freeze'){const s=svc(b.dataset.svc);s.frozen=!s.frozen;log(s.name+(s.frozen?' change freeze ON.':' change freeze lifted.'))}
-  else if(a==='sel'){G.sel=+b.dataset.id}
-  else if(a==='eng'){G.pickEng=+b.dataset.id}
-  else if(a==='do'&&inc&&G.running)startTask(inc,G.pickEng,b.dataset.k);
-  else if(a==='cancel'&&inc&&inc.task){G.team[inc.task.eng].busy=null;inc.task=null;inc.state='open';inc.lastPage=G.t}
-  else if(a==='dismiss'&&inc){if(inc.noise)resolve(inc,'#'+inc.id+' dismissed as noise. Good call.','');else{inc.state='dismissed';inc.repageAt=G.t+20;G.st.dismissedReal++;log('#'+inc.id+' dismissed. ('+svc(inc.svc).name+' is still burning…)');G.sel=null}}
+  else if(a==='freeze'){const s=N(b.dataset.id);s.frozen=!s.frozen;log(s.name+(s.frozen?': releases frozen.':': freeze lifted.'))}
+  else if(a==='selnode'){G.sel=b.dataset.id;closePop()}
+  else if(a==='eng')G.pickEng=+b.dataset.id;
+  else if(a==='do'&&G.running){if(popNode!=null){startTask(N(popNode),popEng,b.dataset.k);closePop()}else if(n)startTask(n,G.pickEng,b.dataset.k)}
+  else if(a==='closepop')closePop();
+  else if(a==='cancel'&&n&&n.task){G.team[n.task.eng].busy=null;n.task=null}
+  else if(a==='ack'){G.alerts.filter(x=>x.key===b.dataset.key&&!x.cleared).forEach(x=>x.acked=true)}
+  else if(a==='silence'){G.alerts.filter(x=>x.key===b.dataset.key&&!x.cleared).forEach(x=>{if(x.kind==='burn')N(x.node).hot=0;if(x.kind!=='noise')G.st.silencedReal++;clearAlert(x)});log('Silenced a page.')}
+  else if(a==='post')post(b.dataset.k);
+  else if(a==='ev'){curEv[b.dataset.v][2]();curEv=null;$('#ov').hidden=true;G.paused=false}
   else if(a==='pick'){const P=G.plan;P.picks.has(b.dataset.id)?P.picks.delete(b.dataset.id):P.picks.add(b.dataset.id);renderPlan()}
   else if(a==='nextday')nextDay();
-  else if(a==='again'){newGame();buildSvcs();sigQ=sigD=sigT='';sigL=-1;intro();setSpeed(1)}
-  sigD='';ui();
+  else if(a==='again'){newGame();buildSlos();sigT=sigD=sigN=sigS=sigW='';lastLog=null;setSpeed(1);intro()}
+  sigD='';sigN='';ui();
 });
-document.addEventListener('keydown',e=>{if(!$('#ov').hidden||e.target.closest('input,textarea'))return;if(e.code==='Space'){e.preventDefault();if(G.running)G.paused=!G.paused}if(['1','2','3'].includes(e.key))setSpeed([1,2,4][+e.key-1])});
+document.addEventListener('keydown',e=>{
+  if(e.target.matches&&e.target.matches('[data-node]')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();G.sel=e.target.dataset.node;sigD='';ui();return}
+  if(!$('#ov').hidden)return;
+  if(e.code==='Space'){e.preventDefault();if(G.running)G.paused=!G.paused}
+  if(['1','2','3'].includes(e.key))setSpeed([1,2,4][+e.key-1]);
+  if(e.key==='Escape'){closePop();G.sel=null;sigD=''}
+});
+let drag=null;
+document.addEventListener('pointerdown',e=>{const m=e.target.closest('.mag');if(!m||!G.running)return;const eng=G.team[+m.dataset.eng];if(eng.out||eng.busy!=null)return;e.preventDefault();document.body.classList.add('dragging');
+  const gh=document.createElement('div');gh.className='ghost';gh.innerHTML=face(eng,56);document.body.appendChild(gh);drag={eng:eng.id,gh,sx:e.clientX,sy:e.clientY,moved:false};gh.style.left=e.clientX+'px';gh.style.top=e.clientY+'px'});
+document.addEventListener('pointermove',e=>{if(!drag)return;drag.gh.style.left=e.clientX+'px';drag.gh.style.top=e.clientY+'px';if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>6)drag.moved=true;
+  document.querySelectorAll('.nd.drop').forEach(x=>x.classList.remove('drop'));const t=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-node]');if(t&&t.dataset.node!=='users')t.classList.add('drop')});
+document.addEventListener('pointerup',e=>{if(!drag)return;const d=drag;drag=null;d.gh.remove();document.body.classList.remove('dragging');justDropped=Date.now();window.getSelection()?.removeAllRanges();document.querySelectorAll('.nd.drop').forEach(x=>x.classList.remove('drop'));
+  const t=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-node]');
+  if(t&&t.dataset.node!=='users')openPop(t.dataset.node,d.eng);else if(!d.moved){G.pickEng=d.eng;sigD='';toast('Drag '+G.team[d.eng].name+' onto a box on the board, or pick a box and use the panel.')}
+  ui()});
+document.addEventListener('pointercancel',()=>{if(drag){drag.gh.remove();drag=null;document.body.classList.remove('dragging')}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&G.running)G.paused=true});
+const ro=new ResizeObserver(()=>{const v=$('#map').clientWidth<600?'v':'h';if(v!==layout){buildMap();closePop()}});
 let last=performance.now(),uiT=0;
 function frame(now){const real=Math.min(.25,(now-last)/1000);last=now;
-  if(G.running&&!G.paused){let gm=real*SCALE*G.speed;while(gm>0&&G.running){const d=Math.min(1,gm);step(d);gm-=d}}
+  if(G.running&&!G.paused){let gm=real*SCALE*G.speed;while(gm>0&&G.running&&!G.paused){const d=Math.min(1,gm);step(d);gm-=d}}
   uiT+=real;if(uiT>.1){uiT=0;ui()}requestAnimationFrame(frame)}
-newGame();buildSvcs();intro();ui();requestAnimationFrame(frame);
+newGame();buildMap();ro.observe($('#map'));buildSlos();intro();ui();requestAnimationFrame(frame);
 }
 </script></body></html>
